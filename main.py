@@ -10,7 +10,7 @@ st.set_page_config(page_title="Sistem Simulasi Energi", layout="wide")
 if 'hasil_simulasi' not in st.session_state:
     st.session_state['hasil_simulasi'] = None
 
-st.title("Simulasi Energi Multi-Lokasi")
+st.title("Sistem Simulasi Energi")
 st.markdown("Pilih lokasi dan rentang waktu dari database untuk memulai simulasi.")
 st.divider()
 

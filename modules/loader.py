@@ -51,9 +51,9 @@ def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year):
                 list_df.append(df_merged)
                 
             except Exception as e:
-                st.error(f"Error membaca data tahun {year}: {e}")
+                st.error(f"Error read year data {year}: {e}")
         else:
-            st.warning(f"File data/harga tahun {year} tidak lengkap. Dilewati.")
+            st.warning(f"File on {year} is not complete. Skipped.")
             
     if not list_df:
         return None
@@ -92,7 +92,7 @@ def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year):
             except Exception as e:
                 st.error(f"Error pada tahun {year}: {e}")
         else:
-            st.warning(f"Data tahun {year} tidak lengkap (Cek folder Price/Titik). Dilewati.")
+            st.warning(f"Data on {year} is not complete. Skipped.")
             
     if not list_df:
         return None

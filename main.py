@@ -128,7 +128,10 @@ with col_spec:
         p_charger_pwr = b1.number_input("(-) Charge (kW)", 0, 10, 5, 1)
         p_discharger_pwr = b2.number_input("(+) Discharge (kW)", 0, 10, 5, 1)
         p_eff = st.number_input("Round-Trip Efficiency (%)", 50, 100, 95) / 100
-        p_soc = st.slider("Initial SoC (%)", 0, 100, 50) / 100         
+        p_soc = st.slider("Initial SoC (%)", 0, 100, 50) / 100
+        range_soc = st.slider("SoC Constraint (%)", min_value=0, max_value=100, value=(10, 90))
+        p_min_soc = range_soc[0] / 100
+        p_max_soc = range_soc[1] / 100              
 
 st.markdown("---")
 btn_run = st.button("Process Parameter and Generate Data", type="primary", use_container_width=True)

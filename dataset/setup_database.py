@@ -26,9 +26,6 @@ def generate_yearly_data(year):
     
     df['suhu'] = (24 + (df['irradiance'] / 85) + np.random.uniform(-0.5, 0.5)).round(1)
     
-    df['beban_rumah_kw'] = df['jam'].apply(
-        lambda x: 0.5 + (2.0 if 17 <= x <= 22 else 0.2) * rand_factor
-    ).round(3)
     
     return df.drop(columns=['jam'])
 

@@ -127,7 +127,7 @@ with col_spec:
         b1, b2 = st.columns(2)
         p_charger_pwr = b1.number_input("(-) Charge (kW)", 0, 10, 5, 1)
         p_discharger_pwr = b2.number_input("(+) Discharge (kW)", 0, 10, 5, 1)
-        p_eff = st.number_input("Efficiency (%)", 50, 100, 95) / 100
+        p_eff = st.number_input("Round-Trip Efficiency (%)", 50, 100, 95) / 100
         p_soc = st.slider("Initial SoC (%)", 0, 100, 50) / 100         
 
 st.markdown("---")

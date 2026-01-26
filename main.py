@@ -114,7 +114,7 @@ with col_dp:
         st.info("⚙️ VPP Setting")
         vpp_price = st.number_input("Dispatch Price Threshold (AUD/MWh)", 0, 2000, 800, 10, key="vpp_threshold")
 
-        st.info("💲 Tariff (For Bill Calculation / Metadata)")
+        st.info("💲 Tariff")
 
         st.text("Export")
         exp_price = st.number_input("Flat Price (AUD/kWh)", 0.0, 1.0, 0.08, 0.01, key="exp_tariff")
@@ -269,7 +269,7 @@ if st.session_state['hasil_simulasi'] is not None:
     ✅ **Generated Simulation Info:** Solar: {used_p['solar']} kWp | Battery: {used_p['bat']} kWh | VPP Threshold: {used_p['vpp_thresh']} AUD/MWh
     """)
 
-    with st.expander("💲 View Applied Tariff Details (For Bill Calculation - Not in CSV)", expanded=True):
+    with st.expander("💲 View Applied Tariff Details", expanded=True):
         tc1, tc2 = st.columns(2)
         with tc1:
             st.markdown(f"**Export Tariff:**")

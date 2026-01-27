@@ -14,7 +14,7 @@ def check_time_window(current_time, start_time, end_time):
 def run_simulation(df, params):
     
     # --- 1. PRE-CALCULATION (SOLAR) ---
-    temp_factor = 1 + (params['temp_coeff'] * (df['temperature'] - 25))
+    temp_factor = 1 + (params['temp_coeff'] * (df['temperature']))
     df['solar_output_kw'] = params['solar_capacity_kw'] * (df['irradiance'] / 1000) * temp_factor * params['pr']
     df['solar_output_kw'] = df['solar_output_kw'].clip(lower=0)
     

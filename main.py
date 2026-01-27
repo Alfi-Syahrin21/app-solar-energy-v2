@@ -1,13 +1,16 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import time as tm
 import random
 import json
+import calendar
 
 from datetime import time
 from modules import loader, calculator
 from modules import tariff_utils as t_utils
+from modules import visualizer
 
 def time_encoder(obj):
     """Mengubah object datetime.time menjadi string 'HH:MM' untuk JSON"""
@@ -296,37 +299,40 @@ if st.session_state['hasil_simulasi'] is not None:
         key='download-csv' 
     )
 
-    total_days = len(df_result) / 288
-    st.subheader(f"📊 Analysis Result: {file_name_info} ({int(total_days)} Days)")
+    st.divider()
+    st.subheader("📊 Detailed Analysis")
     
-    factor = 5/60 
+    df_result['year']  = df_result['timestamp'].dt.year
+    df_result['month'] = df_result['timestamp'].dt.month
+    
+    c_sel_1, c_sel_2 = st.columns(2)
+    
+    with c_sel_1:
+        available_years_vis = sorted(df_result['year'].unique())
+        selected_vis_year = st.selectbox("Select Year:", available_years_vis)
+        df_vis_year = df_result[df_result['year'] == selected_vis_year].copy()
+
+    with c_sel_2:
+        available_months = sorted(df_vis_year['month'].unique())
+        month_map = {m: calendar.month_name[m] for m in available_months}
+        selected_month_name = st.selectbox("Select Month for Profile:", list(month_map.values()))
+        selected_vis_month = [k for k, v in month_map.items() if v == selected_month_name][0]
+        df_vis_month = df_vis_year[df_vis_year['month'] == selected_vis_month].copy()
+    
+    factor = 5/60
+    
+    col_load = 'load_profile' if 'load_profile' in df_vis_year.columns else 'beban_rumah_kw'
+    col_bat  = 'battery_power_ac_kw' if 'battery_power_ac_kw' in df_vis_year.columns else 'battery_power_kw'
+    
+    total_solar = df_vis_year['solar_output_kw'].sum() * factor
+    total_load  = df_vis_year[col_load].sum() * factor
+    total_import = df_vis_year['grid_net_kw'].apply(lambda x: x if x > 0 else 0).sum() * factor
     
     m1, m2, m3 = st.columns(3)
-    m1.metric("Solar Output", f"{df_result['solar_output_kw'].sum()*factor:,.2f} kWh")
-    m2.metric("Load", f"{df_result['load_profile'].sum()*factor:,.2f} kWh")
-    
-    grid_imp = df_result['grid_net_kw'].apply(lambda x: x if x > 0 else 0).sum() * factor
-    m3.metric("Grid Import", f"{grid_imp:,.2f} kWh", delta_color="inverse")
-      
-    st.markdown("### 📈 Visualization (Sample for first 5-days)")
-    subset = df_result.head(288 * 5)
-    
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    
-    ax1.set_title("Solar Output vs Load (kW)")
-    ax1.plot(subset['timestamp'], subset['solar_output_kw'], color='green', label='Solar', alpha=0.8)
-    ax1.plot(subset['timestamp'], subset['load_profile'], color='red', linestyle='--', label='Load', alpha=0.8)
-    ax1.legend(loc="upper right")
-    ax1.grid(True, alpha=0.3)
-    
-    ax2.set_title("State of Charge (%)")
-    ax2.fill_between(subset['timestamp'], subset['battery_soc_pct'], color='blue', alpha=0.1)
-    ax2.plot(subset['timestamp'], subset['battery_soc_pct'], color='blue')
-    ax2.set_ylim(0, 105)
-    ax2.grid(True, alpha=0.3)
-    
-    ax3.set_title("Grid Interaction (kW)")
-    ax3.bar(subset['timestamp'], subset['grid_net_kw'], color='black', width=0.01)
-    ax3.grid(True, alpha=0.3)
-    
-    st.pyplot(fig)
+    m1.metric(f"Total Solar ({selected_vis_year})", f"{total_solar:,.2f} kWh")
+    m2.metric(f"Total Load ({selected_vis_year})", f"{total_load:,.2f} kWh")
+    m3.metric(f"Grid Import ({selected_vis_year})", f"{total_import:,.2f} kWh", delta_color="inverse")
+
+    visualizer.plot_annual_overview(df_vis_year, col_bat, selected_vis_year)
+    st.divider()
+    visualizer.plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_vis_year)

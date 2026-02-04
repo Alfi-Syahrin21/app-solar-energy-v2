@@ -305,20 +305,11 @@ if st.session_state['hasil_simulasi'] is not None:
     df_result['year']  = df_result['timestamp'].dt.year
     df_result['month'] = df_result['timestamp'].dt.month
     
-    c_sel_1, c_sel_2 = st.columns(2)
-    
-    with c_sel_1:
-        available_years_vis = sorted(df_result['year'].unique())
-        selected_vis_year = st.selectbox("Select Year:", available_years_vis)
-        df_vis_year = df_result[df_result['year'] == selected_vis_year].copy()
+   
+    available_years_vis = sorted(df_result['year'].unique())
+    selected_vis_year = st.selectbox("Select Year:", available_years_vis)
+    df_vis_year = df_result[df_result['year'] == selected_vis_year].copy()
 
-    with c_sel_2:
-        available_months = sorted(df_vis_year['month'].unique())
-        month_map = {m: calendar.month_name[m] for m in available_months}
-        selected_month_name = st.selectbox("Select Month for Profile:", list(month_map.values()))
-        selected_vis_month = [k for k, v in month_map.items() if v == selected_month_name][0]
-        df_vis_month = df_vis_year[df_vis_year['month'] == selected_vis_month].copy()
-    
     factor = 5/60
     
     col_load = 'load_profile' if 'load_profile' in df_vis_year.columns else 'beban_rumah_kw'
@@ -334,5 +325,18 @@ if st.session_state['hasil_simulasi'] is not None:
     m3.metric(f"Grid Import ({selected_vis_year})", f"{total_import:,.2f} kWh", delta_color="inverse")
 
     visualizer.plot_annual_overview(df_vis_year, col_bat, selected_vis_year)
+
     st.divider()
-    visualizer.plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_vis_year)
+
+    @st.fragment
+    def show_monthly_analysis_fragment():
+        available_months = sorted(df_vis_year['month'].unique())
+        month_map = {m: calendar.month_name[m] for m in available_months}
+        
+        selected_month_name = st.selectbox("Select Month for Profile:", list(month_map.values()))
+        selected_vis_month = [k for k, v in month_map.items() if v == selected_month_name][0]
+        df_vis_month = df_vis_year[df_vis_year['month'] == selected_vis_month].copy()
+        
+        visualizer.plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_vis_year)
+
+    show_monthly_analysis_fragment()

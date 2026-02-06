@@ -1,11 +1,16 @@
 import os
 import pandas as pd
+import numpy as np
 import streamlit as st
-import random 
+import random
+import calendar
 
 DATASET_DIR = "dataset"
 LOAD_PROFILE_DIR = os.path.join(DATASET_DIR, "load_profile")
 
+ROWS_PER_DAY = 288
+IDX_FEB_29_START = 59 * ROWS_PER_DAY  
+IDX_FEB_28_START = 58 * ROWS_PER_DAY  
 
 def get_list_lokasi():
     if not os.path.exists(DATASET_DIR): return []
@@ -25,146 +30,150 @@ def get_available_years(nama_lokasi, nama_titik):
     years = []
     for f in files:
         if f.endswith('.csv'):
-            try:
-                years.append(int(f.replace('.csv', '')))
+            try: years.append(int(f.replace('.csv', '')))
             except ValueError: pass 
     return sorted(years)
 
-@st.cache_data(show_spinner=False)
-def load_generic_year_data(folder_path):
-    """Load Master Solar File (Cached)"""
-    if not os.path.exists(folder_path): return None
-    
-    files = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')])
-    if not files: return None
-    
-    ref_file = os.path.join(folder_path, files[0]) 
-    try:
-        df = pd.read_csv(ref_file)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        
-        df = df.drop_duplicates(subset=['timestamp']).sort_values('timestamp')
-        
-        if 'suhu' in df.columns:
-            df.rename(columns={'suhu': 'temperature'}, inplace=True)
-            
-        df['month'] = df['timestamp'].dt.month
-        df['day'] = df['timestamp'].dt.day
-        df['hour'] = df['timestamp'].dt.hour
-        df['minute'] = df['timestamp'].dt.minute
-        
-        return df.drop(columns=['timestamp'])
-    except Exception as e:
-        st.error(f"Error reading master solar: {e}")
-        return None
+# ==========================================
+# 1. LOAD GENERIC ARRAYS (RAW SPEED)
+# ==========================================
 
 @st.cache_data(show_spinner=False)
-def load_single_load_profile(path_file):
-    """Helper untuk load 1 file load profile spesifik (Cached)"""
+def load_solar_array(path_file):
+    """
+    Load CSV Solar -> Langsung ambil kolom data -> Jadi Array.
+    TANPA parsing tanggal, TANPA sorting.
+    """
+    if not os.path.exists(path_file): return None, None
+    try:
+        # Baca CSV
+        df = pd.read_csv(path_file)
+        
+        # Cari nama kolom (case insensitive)
+        col_irr = next((c for c in df.columns if 'irradiance' in c.lower() or 'glob' in c.lower()), None)
+        col_temp = next((c for c in df.columns if 'temperature' in c.lower() or 'amb' in c.lower()), None)
+        
+        if not col_irr: return None, None
+
+        # Langsung convert ke Numpy (Sangat Cepat)
+        arr_irr = df[col_irr].to_numpy()
+        
+        # Jika ada data suhu ambil, jika tidak buat array rata 25 derajat
+        arr_temp = df[col_temp].to_numpy() if col_temp else np.full(len(arr_irr), 25.0)
+        
+        return arr_irr, arr_temp
+    except Exception:
+        return None, None
+
+def load_load_profile_array():
+    """
+    Load CSV Load Profile -> Langsung ambil kolom data -> Jadi Array.
+    """
+    if not os.path.exists(LOAD_PROFILE_DIR): return None, "No Folder"
+    files = [f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.csv')]
+    if not files: return None, "Empty"
+    
+    selected_file = random.choice(files)
+    path_file = os.path.join(LOAD_PROFILE_DIR, selected_file)
+    
     try:
         df = pd.read_csv(path_file)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df = df.drop_duplicates(subset=['timestamp']).sort_values('timestamp')
         
-        if 'beban_rumah_kw' in df.columns:
-            df.rename(columns={'beban_rumah_kw': 'load_profile'}, inplace=True)
-            
-        df['month'] = df['timestamp'].dt.month
-        df['day'] = df['timestamp'].dt.day
-        df['hour'] = df['timestamp'].dt.hour
-        df['minute'] = df['timestamp'].dt.minute
+        # Cari kolom beban
+        col_load = next((c for c in df.columns if 'beban' in c.lower() or 'load_profile' in c.lower()), None)
+        if not col_load: return None, "Invalid CSV"
         
-        return df.drop(columns=['timestamp'])
+        # Langsung convert ke Numpy
+        return df[col_load].to_numpy(), selected_file
     except Exception:
-        return None
+        return None, "Error Read"
 
-def get_random_load_profile_path():
-    """Hanya mengambil path file, tidak me-load datanya (agar random tetap jalan di main)"""
-    if not os.path.exists(LOAD_PROFILE_DIR): return None
-    files = [f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.csv')]
-    if not files: return None
-    selected_file = random.choice(files)
-    return os.path.join(LOAD_PROFILE_DIR, selected_file), selected_file
+def get_master_solar_path(folder_path):
+    if not os.path.exists(folder_path): return None
+    files = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')])
+    return os.path.join(folder_path, files[0]) if files else None
 
+# ==========================================
+# 2. MAIN LOGIC (INDEX SPLICING)
+# ==========================================
 
 def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year):
     path_titik = os.path.join(DATASET_DIR, nama_lokasi, nama_titik)
     path_price_dir = os.path.join(DATASET_DIR, nama_lokasi, "Price")
     
-    df_solar_master = load_generic_year_data(path_titik)
-    
-    load_path_info = get_random_load_profile_path()
-    if not load_path_info:
-        st.error("Gagal memilih load profile.")
+    # 1. SIAPKAN ARRAY MASTER (1 TAHUN)
+    solar_path = get_master_solar_path(path_titik)
+    if not solar_path:
+        st.error("File Solar Master tidak ditemukan.")
         return None
+        
+    base_irr, base_temp = load_solar_array(solar_path)
+    base_load, load_name = load_load_profile_array()
     
-    path_load, load_filename = load_path_info
-    st.toast(f"🎲 Load Profile: {load_filename}")
-    
-    df_load_master = load_single_load_profile(path_load)
+    if base_irr is None or base_load is None:
+        st.error("Gagal memuat data array Solar/Load.")
+        return None
+        
+    st.toast(f"Profile: {load_name}")
 
-    if df_solar_master is None or df_load_master is None:
-        st.error("Data Master Corrupt/Missing.")
-        return None
-    
-    solar_feb28 = df_solar_master[
-        (df_solar_master['month'] == 2) & (df_solar_master['day'] == 28)
-    ].sort_values(['hour', 'minute'])
-    
-    load_feb28 = df_load_master[
-        (df_load_master['month'] == 2) & (df_load_master['day'] == 28)
-    ].sort_values(['hour', 'minute'])
+    # Siapkan Slice Array untuk Kabisat (Copy Data 28 Feb)
+    # Index 16704 s/d 16992 (Data 288 baris milik tanggal 28 Feb)
+    extra_irr = base_irr[IDX_FEB_28_START:IDX_FEB_29_START]
+    extra_temp = base_temp[IDX_FEB_28_START:IDX_FEB_29_START]
+    extra_load = base_load[IDX_FEB_28_START:IDX_FEB_29_START]
 
     list_df_final = []
 
+    # 2. LOOP TAHUN (PRICE BACKBONE)
     for year in range(start_year, end_year + 1):
         file_price = os.path.join(path_price_dir, f"{year}.csv")
         if not os.path.exists(file_price): continue
             
         try:
+            # Load Price (Masih perlu parsing timestamp ini karena ini backbone waktu kita)
             df_price = pd.read_csv(file_price)
             df_price['timestamp'] = pd.to_datetime(df_price['timestamp'])
-            
-            if df_price['timestamp'].duplicated().any():
-                df_price = df_price.drop_duplicates(subset=['timestamp'])
-            
-            df_price = df_price.sort_values('timestamp')
-            
+            # Sort Price tetap diperlukan agar urutan backbone benar
+            df_price = df_price.sort_values('timestamp').reset_index(drop=True)
+
             if 'harga_listrik' in df_price.columns:
                 df_price.rename(columns={'harga_listrik': 'price_import'}, inplace=True)
-            
-            df_price['month'] = df_price['timestamp'].dt.month
-            df_price['day'] = df_price['timestamp'].dt.day
-            df_price['hour'] = df_price['timestamp'].dt.hour
-            df_price['minute'] = df_price['timestamp'].dt.minute
-            
-            df_merged = pd.merge(df_price, df_solar_master, on=['month', 'day', 'hour', 'minute'], how='left')
-            df_merged = pd.merge(df_merged, df_load_master, on=['month', 'day', 'hour', 'minute'], how='left')
-            
-            mask_nan = df_merged['irradiance'].isna()
-            
-            if mask_nan.any():
-                fill_irr = solar_feb28['irradiance'].values
-                fill_temp = solar_feb28['temperature'].values
-                fill_load = load_feb28['load_profile'].values
-                
-                try:
-                    df_merged.loc[mask_nan, 'irradiance'] = fill_irr
-                    df_merged.loc[mask_nan, 'temperature'] = fill_temp
-                    df_merged.loc[mask_nan, 'load_profile'] = fill_load
-                except ValueError:
-                    df_merged.loc[mask_nan, 'irradiance'] = 0
-                    df_merged.loc[mask_nan, 'temperature'] = 25
-                    df_merged.loc[mask_nan, 'load_profile'] = 0
 
-            cols_to_keep = ['timestamp', 'price_import', 'irradiance', 'temperature', 'load_profile']
-            df_final = df_merged[[c for c in cols_to_keep if c in df_merged.columns]]
+            # Cek Kabisat
+            is_leap = calendar.isleap(year)
             
-            df_final = df_final.ffill().fillna(0)
-            list_df_final.append(df_final)
+            # Buat Array Tahunan Solar/Load (Splicing)
+            if is_leap:
+                # Sisipkan data 28 Feb untuk menjadi 29 Feb
+                curr_irr = np.concatenate([base_irr[:IDX_FEB_29_START], extra_irr, base_irr[IDX_FEB_29_START:]])
+                curr_temp = np.concatenate([base_temp[:IDX_FEB_29_START], extra_temp, base_temp[IDX_FEB_29_START:]])
+                curr_load = np.concatenate([base_load[:IDX_FEB_29_START], extra_load, base_load[IDX_FEB_29_START:]])
+            else:
+                # Bukan kabisat, pakai array master apa adanya
+                curr_irr = base_irr
+                curr_temp = base_temp
+                curr_load = base_load
+            
+            # Tempel ke DataFrame
+            len_price = len(df_price)
+            len_data = len(curr_irr)
+            
+            # Safety Logic: Potong jika array kepanjangan, Pad 0 jika kedekitan
+            if len_price <= len_data:
+                df_price['irradiance'] = curr_irr[:len_price]
+                df_price['temperature'] = curr_temp[:len_price]
+                df_price['load_profile'] = curr_load[:len_price]
+            else:
+                pad_len = len_price - len_data
+                df_price['irradiance'] = np.pad(curr_irr, (0, pad_len), 'edge')
+                df_price['temperature'] = np.pad(curr_temp, (0, pad_len), 'edge')
+                df_price['load_profile'] = np.pad(curr_load, (0, pad_len), 'edge')
+
+            cols = ['timestamp', 'price_import', 'irradiance', 'temperature', 'load_profile']
+            list_df_final.append(df_price[cols])
             
         except Exception as e:
-            st.error(f"Error processing {year}: {e}")
+            st.error(f"Error processing year {year}: {e}")
 
     if not list_df_final: return None
 

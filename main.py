@@ -111,11 +111,11 @@ with col_dp:
             st.stop()
 
         st.info("🏠 Load Profile")
-        use_rand_load = st.toggle("Randomize / Fixed Load Profile", value=True, key="chk_load")
+        use_rand_load = st.toggle("Randomize / Fixed Load Profile", value=False, key="chk_load")
 
         selected_load_file = None 
         
-        if not use_rand_load:
+        if use_rand_load:
             list_load_files = loader.get_list_load_profiles()
             
             if list_load_files:

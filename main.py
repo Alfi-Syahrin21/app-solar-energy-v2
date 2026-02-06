@@ -36,8 +36,6 @@ def apply_config(uploaded_file):
             st.error(f"Error loading config: {e}")
 
 
-
-
 st.set_page_config(page_title="CER Simulation Data Generator", layout="wide")
 
 if 'hasil_simulasi' not in st.session_state:
@@ -71,7 +69,6 @@ with st.sidebar:
             file_name="simulation_config.json",
             mime="application/json"
         )
-
 
 
 st.title("CER Simulation Data Generator")
@@ -112,6 +109,20 @@ with col_dp:
         else:
             st.warning("There is no data on this point!")
             st.stop()
+
+        st.info("🏠 Load Profile")
+        use_rand_load = st.toggle("Randomize / Fixed Load Profile", value=True, key="chk_load")
+
+        selected_load_file = None 
+        
+        if not use_rand_load:
+            list_load_files = loader.get_list_load_profiles()
+            
+            if list_load_files:
+                selected_load_file = st.selectbox("Select Profile Source", list_load_files, key="sel_load_file")
+            else:
+                st.error("No CSV files found in 'dataset/load_profile'!")
+                st.stop()
 
     with col_tariff:
         st.info("⚙️ VPP Setting")
@@ -200,7 +211,13 @@ if btn_run:
         final_p_bat = p_bat_fix
 
     with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):
-        df_input = loader.load_and_merge_data(selected_loc, selected_point, start_y, end_y)
+        df_input = loader.load_and_merge_data(
+            selected_loc, 
+            selected_point, 
+            start_y, 
+            end_y, 
+            fixed_load_file=selected_load_file
+        )
         tm.sleep(0.5) 
     
     if df_input is not None:
@@ -290,7 +307,11 @@ if st.session_state['hasil_simulasi'] is not None:
                 st.markdown(f"🟦 Flat Rate: **{t_data['import_flat']} AUD/kWh**")
 
     st.markdown("### 💾 Export Data")
-    csv = df_result.to_csv(index=False).encode('utf-8')
+    
+    df_export = df_result.copy()
+    df_export = df_export.round(2)
+    
+    csv = df_export.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Dataset (CSV)",
         data=csv,
@@ -305,13 +326,11 @@ if st.session_state['hasil_simulasi'] is not None:
     df_result['year']  = df_result['timestamp'].dt.year
     df_result['month'] = df_result['timestamp'].dt.month
     
-   
     available_years_vis = sorted(df_result['year'].unique())
     selected_vis_year = st.selectbox("Select Year:", available_years_vis)
     df_vis_year = df_result[df_result['year'] == selected_vis_year].copy()
-
-    factor = 5/60
     
+    factor = 5/60
     col_load = 'load_profile' if 'load_profile' in df_vis_year.columns else 'beban_rumah_kw'
     col_bat  = 'battery_power_ac_kw' if 'battery_power_ac_kw' in df_vis_year.columns else 'battery_power_kw'
     
@@ -325,7 +344,7 @@ if st.session_state['hasil_simulasi'] is not None:
     m3.metric(f"Grid Import ({selected_vis_year})", f"{total_import:,.2f} kWh", delta_color="inverse")
 
     visualizer.plot_annual_overview(df_vis_year, col_bat, selected_vis_year)
-
+    
     st.divider()
 
     @st.fragment
@@ -334,6 +353,7 @@ if st.session_state['hasil_simulasi'] is not None:
         month_map = {m: calendar.month_name[m] for m in available_months}
         
         selected_month_name = st.selectbox("Select Month for Profile:", list(month_map.values()))
+        
         selected_vis_month = [k for k, v in month_map.items() if v == selected_month_name][0]
         df_vis_month = df_vis_year[df_vis_year['month'] == selected_vis_month].copy()
         

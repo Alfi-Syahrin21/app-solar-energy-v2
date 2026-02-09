@@ -311,12 +311,24 @@ if st.session_state['hasil_simulasi'] is not None:
     df_export = df_result.copy()
     df_export = df_export.round(2)
 
+    desired_columns = [
+        'timestamp',
+        'irradiance',
+        'temperature', 
+        'solar_output_kw', 
+        'load_profile',
+        'battery_soc', 
+        'battery_power_ac_kw',
+        'grid_net_kw',
+    ]
+    final_cols = [c for c in desired_columns if c in df_export.columns]
+    df_export = df_export[final_cols]
+
     df_export = df_export.rename(columns={
-        'solar_output_kw': 'Solar Generation (kW)',
-        'load_profile': 'Load Consumption (kW)',
-        'battery_power_ac_kw': 'Battery Power (kW)', 
-        'battery_soc': 'Battery SoC',
-        'grid_net_kw': 'Grid Net (kW)'
+        'irradiance': 'irradiance_Wh/m^2',
+        'temperature': 'temperature_C',
+        'load_profile': 'load_kW',
+        'price_profile': 'price_AUD'
     })
     
     csv = df_export.to_csv(index=False).encode('utf-8')

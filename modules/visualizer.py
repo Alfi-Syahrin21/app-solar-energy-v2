@@ -59,7 +59,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         plt.tight_layout() 
         st.pyplot(fig2)
 
-    # --- BARIS 2 (VPP Heatmap & Battery Breakdown) ---
+    # --- BARIS 2 (VPP Heatmap & Negative Price Heatmap) ---
     c3, c4 = st.columns(2)
 
     with c3:
@@ -73,63 +73,111 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             
             heatmap_data = daily_vpp.pivot(index='m', columns='d', values='vpp_minutes')
             heatmap_data = heatmap_data.reindex(index=range(1, 13), columns=range(1, 32))
-            data_matrix = heatmap_data.to_numpy()
+            
+            data_matrix = heatmap_data.fillna(0).to_numpy()
             
             fig_heat, ax_h = plt.subplots(figsize=(6, 4))
-            im = ax_h.imshow(data_matrix, cmap='Oranges', aspect='auto', interpolation='nearest', vmin=0)
+            
+            import matplotlib.colors as mcolors
+            cmap_custom = mcolors.LinearSegmentedColormap.from_list("WhiteOrange", ["white", "orange", "#8B4500"])
+            
+            max_val = data_matrix.max()
+            vmax_val = max(max_val, 60) 
+            
+            im = ax_h.imshow(data_matrix, cmap=cmap_custom, aspect='auto', interpolation='nearest', vmin=0, vmax=vmax_val)
             
             ax_h.set_xticks(np.arange(0, 31, 2))
             ax_h.set_xticklabels(np.arange(1, 32, 2), fontsize=7)
             ax_h.set_yticks(np.arange(12))
             ax_h.set_yticklabels([calendar.month_abbr[i] for i in range(1, 13)], fontsize=8)
             
-            ax_h.set_title("VPP Duration (Minutes)")
+            ax_h.set_title("VPP Discharge")
             
             cbar = ax_h.figure.colorbar(im, ax=ax_h, fraction=0.046, pad=0.04)
             cbar.ax.tick_params(labelsize=8)
-            cbar.set_label("Duration (Minutes)")
+            cbar.set_label("Minutes Active")
             
             plt.tight_layout()
             st.pyplot(fig_heat)
         else:
             st.info("No VPP Status Data Available")
+
     with c4:
-        df_bat = df_vis_year.copy()
+        col_price = 'price_import' if 'price_import' in df_vis_year.columns else 'price_profile'
         
-        df_bat['vpp_dis_kw'] = df_bat.apply(
-            lambda x: x[col_bat] if (x.get('vpp_status') == True and x[col_bat] > 0) else 0, axis=1
-        )
-        df_bat['norm_dis_kw'] = df_bat.apply(
-            lambda x: x[col_bat] if (x.get('vpp_status') == False and x[col_bat] > 0) else 0, axis=1
-        )
-        
-        daily_bat = df_bat.set_index('timestamp')[['vpp_dis_kw', 'norm_dis_kw']].resample('D').sum() * factor
-        
-        fig_break, ax_b = plt.subplots(figsize=(6, 4))
-        colors_bat = ['#d35400', '#55a868'] 
-        labels_bat = ['VPP', 'Normal']
-        
-        ax_b.stackplot(daily_bat.index, 
-                       daily_bat['vpp_dis_kw'], 
-                       daily_bat['norm_dis_kw'],
-                       colors=colors_bat, labels=labels_bat, alpha=0.8)
-        
-        ax_b.set_title("Normal VS VPP Discharge")
-        ax_b.set_ylabel("Energy (kWh)")
-        
-        ax_b.xaxis.set_major_locator(mdates.MonthLocator())
-        ax_b.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-        plt.setp(ax_b.get_xticklabels(), rotation=0, ha="center", fontsize=9)
-        
-        ax_b.set_xlim(daily_bat.index[0], daily_bat.index[-1])
-        ax_b.legend(loc='upper right', fontsize='x-small')
-        ax_b.grid(True, alpha=0.3)
-        
-        plt.tight_layout() 
-        st.pyplot(fig_break)
+        if col_price in df_vis_year.columns:
+            df_vis_year['neg_minutes'] = df_vis_year[col_price].apply(lambda x: 5 if x < 0 else 0)
+            
+            daily_neg = df_vis_year.set_index('timestamp')['neg_minutes'].resample('D').sum().reset_index()
+            
+            daily_neg['m'] = daily_neg['timestamp'].dt.month
+            daily_neg['d'] = daily_neg['timestamp'].dt.day
+            
+            heatmap_neg = daily_neg.pivot(index='m', columns='d', values='neg_minutes')
+            heatmap_neg = heatmap_neg.reindex(index=range(1, 13), columns=range(1, 32))
+            
+            data_matrix_neg = heatmap_neg.fillna(0).to_numpy()
+            
+            fig_neg, ax_n = plt.subplots(figsize=(6, 4))
+            
+            cmap_neg = mcolors.LinearSegmentedColormap.from_list("WhiteGreen", ["white", "#2ecc71", "#006400"])
+            
+            max_val_n = data_matrix_neg.max()
+            vmax_val_n = max(max_val_n, 60)
+            
+            im_n = ax_n.imshow(data_matrix_neg, cmap=cmap_neg, aspect='auto', interpolation='nearest', vmin=0, vmax=vmax_val_n)
+            
+            ax_n.set_xticks(np.arange(0, 31, 2))
+            ax_n.set_xticklabels(np.arange(1, 32, 2), fontsize=7)
+            ax_n.set_yticks(np.arange(12))
+            ax_n.set_yticklabels([calendar.month_abbr[i] for i in range(1, 13)], fontsize=8)
+            
+            ax_n.set_title("VPP Charge")
+            
+            cbar_n = ax_n.figure.colorbar(im_n, ax=ax_n, fraction=0.046, pad=0.04)
+            cbar_n.ax.tick_params(labelsize=8)
+            cbar_n.set_label("Minutes Active")
+            
+            plt.tight_layout()
+            st.pyplot(fig_neg)
+        else:
+            st.info("Price Data Not Available")
 
-    # Baris 3 Price Profile
 
+    #Baris 3 Normal Vs VPP Discharge
+    df_bat = df_vis_year.copy()
+    df_bat['vpp_dis_kw'] = df_bat.apply(
+        lambda x: x[col_bat] if (x.get('vpp_status') == True and x[col_bat] > 0) else 0, axis=1
+    )
+    df_bat['norm_dis_kw'] = df_bat.apply(
+        lambda x: x[col_bat] if (x.get('vpp_status') == False and x[col_bat] > 0) else 0, axis=1
+    )
+    daily_bat = df_bat.set_index('timestamp')[['vpp_dis_kw', 'norm_dis_kw']].resample('D').sum() * factor
+    
+    fig_break, ax_b = plt.subplots(figsize=(12, 3.5))
+    colors_bat = ['#d35400', '#55a868'] 
+    labels_bat = ['VPP Discharge', 'Normal Discharge']
+    
+    ax_b.stackplot(daily_bat.index, 
+                   daily_bat['vpp_dis_kw'], 
+                   daily_bat['norm_dis_kw'],
+                   colors=colors_bat, labels=labels_bat, alpha=0.8)
+    
+    ax_b.set_title("VPP Discharge VS Normal Discharge")
+    ax_b.set_ylabel("Energy (kWh)")
+    
+    ax_b.xaxis.set_major_locator(mdates.MonthLocator())
+    ax_b.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    ax_b.set_xlim(daily_bat.index[0], daily_bat.index[-1])
+    
+    ax_b.legend(loc='upper right', fontsize='small')
+    ax_b.grid(True, alpha=0.3)
+    
+    plt.tight_layout() 
+    st.pyplot(fig_break)
+
+
+    # Baris 4 Price Profile
     if 'price_profile' in df_vis_year.columns:
         df_price_profile = df_vis_year.set_index('timestamp')['price_profile']
         
@@ -146,7 +194,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
                           interpolate=True, color='#e74c3c', alpha=0.6, label='Negative Price')
         
         ax_p.set_ylabel("Price (AUD)")
-        ax_p.set_title("Electricity Spot Market Price")
+        ax_p.set_title("Electricity Spot Market Price (5 Minutes)")
 
         ax_p.xaxis.set_major_locator(mdates.MonthLocator())
         ax_p.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
@@ -159,27 +207,33 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     else:
         st.warning("Price profile data not found.")
     
+    #Baris ke 4 Grid Net
+
     if 'grid_net_kw' in df_vis_year.columns:
-        df_grid_daily = df_vis_year.set_index('timestamp')['grid_net_kw'].resample('d').mean()
+        factor = 5/60
+        s_import = df_vis_year.set_index('timestamp')['grid_net_kw'].clip(lower=0)
+        
+        s_export = df_vis_year.set_index('timestamp')['grid_net_kw'].clip(upper=0)
+        
+        df_daily_imp = (s_import * factor).resample('D').sum()
+        df_daily_exp = (s_export * factor).resample('D').sum()
         
         fig_grid, ax_g = plt.subplots(figsize=(12, 3)) 
         
-        ax_g.plot(df_grid_daily.index, df_grid_daily, color='black', linewidth=0.5, alpha=0.3)
+        ax_g.plot(df_daily_imp.index, df_daily_imp, color='#e74c3c', linewidth=1, label='Total Import')
+        ax_g.fill_between(df_daily_imp.index, df_daily_imp, 0, color='#e74c3c', alpha=0.5)
         
-        ax_g.fill_between(df_grid_daily.index, df_grid_daily, 0, 
-                          where=(df_grid_daily >= 0), 
-                          interpolate=True, color='#e74c3c', alpha=0.6, label='Import (From Grid)')
+        ax_g.plot(df_daily_exp.index, df_daily_exp, color='#2ecc71', linewidth=1, label='Total Export')
+        ax_g.fill_between(df_daily_exp.index, df_daily_exp, 0, color='#2ecc71', alpha=0.5)
         
-        ax_g.fill_between(df_grid_daily.index, df_grid_daily, 0, 
-                          where=(df_grid_daily < 0), 
-                          interpolate=True, color='#2ecc71', alpha=0.6, label='Export (To Grid)')
+        ax_g.axhline(0, color='black', linewidth=0.8, linestyle='--')
         
-        ax_g.set_ylabel("Power (kW)")
-        ax_g.set_title("Grid (Import vs Export)")
+        ax_g.set_ylabel("Energy (kWh)")
+        ax_g.set_title("Grid Exchange: Import vs Export")
 
         ax_g.xaxis.set_major_locator(mdates.MonthLocator())
         ax_g.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-        ax_g.set_xlim(df_grid_daily.index[0], df_grid_daily.index[-1])
+        ax_g.set_xlim(df_daily_imp.index[0], df_daily_imp.index[-1])
         
         ax_g.grid(True, alpha=0.3)
         ax_g.legend(loc='upper right', fontsize='small')

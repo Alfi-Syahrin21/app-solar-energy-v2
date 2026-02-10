@@ -210,13 +210,23 @@ if btn_run:
     else:
         final_p_bat = p_bat_fix
 
+    if not use_rand_load:
+        all_files = loader.get_list_load_profiles()
+        if all_files:
+            final_load_file = random.choice(all_files)
+        else:
+            st.error("❌ No CSV files found in dataset/load_profile!")
+            st.stop()
+    else:
+        final_load_file = selected_load_file
+
     with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 
             selected_point, 
             start_y, 
             end_y, 
-            fixed_load_file=selected_load_file
+            fixed_load_file=final_load_file 
         )
         tm.sleep(0.5) 
     
@@ -266,16 +276,27 @@ if btn_run:
             tariff_snapshot['import_flat'] = p_flat
 
         st.session_state['used_params'] = {
-            'solar': final_p_solar, 
+            'solar': final_p_solar,
+            'solar_pr': p_pr,
+            'solar_temp': p_temp,
             'bat': final_p_bat,
+            'bat_eff': p_eff,
+            'bat_soc_init': p_soc,
+            'bat_charge_kw': p_charger_pwr,
+            'bat_discharge_kw': p_discharger_pwr,
+            'soc_min': p_min_soc,
+            'soc_max': p_max_soc,
             'vpp_thresh': vpp_price,
-            'tariff_data': tariff_snapshot
+            'tariff_data': tariff_snapshot,
+            'location': f"{selected_loc} - {selected_point}",
+            'period': f"{start_y} to {end_y}",
+            'load_source': final_load_file 
         }
         
-        st.success("Data Has Been Generated!")
+        st.success(f"Data Has Been Generated!")
     else:
         st.error("Failed to Generate the Data")
-
+         
 if st.session_state['hasil_simulasi'] is not None:
     
     df_result = st.session_state['hasil_simulasi']
@@ -285,9 +306,37 @@ if st.session_state['hasil_simulasi'] is not None:
 
     st.divider()
     
-    st.info(f"""
-    ✅ **Generated Simulation Info:** Solar: {used_p['solar']} kWp | Battery: {used_p['bat']} kWh | VPP Threshold: {used_p['vpp_thresh']} AUD/MWh
-    """)
+    st.markdown("### 📋 Generated Simulation Info")
+    
+    with st.container(border=True):
+        st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}`")
+        st.divider()
+        
+        c_sys1, c_sys2, c_sys3 = st.columns(3)
+        
+        with c_sys1:
+            st.markdown("#### ☀️ Solar PV")
+            st.markdown(f"""
+            - Capacity: **{used_p['solar']} kWp**
+            - PR: **{used_p['solar_pr']}**
+            - Temp Coeff: **{used_p['solar_temp']}**
+            """)
+            
+        with c_sys2:
+            st.markdown("#### 🔋 Battery Storage")
+            st.markdown(f"""
+            - Capacity: **{used_p['bat']} kWh**
+            - Power: **-{used_p['bat_charge_kw']} / +{used_p['bat_discharge_kw']} kW**
+            - Efficiency: **{int(used_p['bat_eff']*100)}%**
+            """)
+            
+        with c_sys3:
+            st.markdown("#### ⚡ Control Logic")
+            st.markdown(f"""
+            - VPP Threshold: **{used_p['vpp_thresh']} AUD**
+            - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
+            - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
+            """)
 
     with st.expander("💲 View Applied Tariff Details", expanded=True):
         tc1, tc2 = st.columns(2)
@@ -311,7 +360,7 @@ if st.session_state['hasil_simulasi'] is not None:
     df_export = df_result.copy()
     df_export = df_export.round(2)
 
-    desired_columns = [
+    output_columns = [
         'timestamp',
         'irradiance',
         'temperature', 
@@ -321,7 +370,7 @@ if st.session_state['hasil_simulasi'] is not None:
         'battery_power_ac_kw',
         'grid_net_kw',
     ]
-    final_cols = [c for c in desired_columns if c in df_export.columns]
+    final_cols = [c for c in output_columns if c in df_export.columns]
     df_export = df_export[final_cols]
 
     df_export = df_export.rename(columns={

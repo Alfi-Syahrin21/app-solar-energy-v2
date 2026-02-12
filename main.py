@@ -206,7 +206,26 @@ if btn_run:
         final_p_solar = p_solar_fix
         
     if not use_rand_bat:
-        final_p_bat = round(random.uniform(p_bat_min, p_bat_max), 2)
+        ratio_min = 0.7
+        ratio_max = 1.3
+        
+        ideal_min = final_p_solar * ratio_min
+        ideal_max = final_p_solar * ratio_max
+        
+        user_min = p_bat_min
+        user_max = p_bat_max
+        
+        target_min = (user_min + ideal_min) / 2
+        target_max = (user_max + ideal_max) / 2
+        
+        final_bat_min = max(user_min, min(target_min, user_max))
+        final_bat_max = min(user_max, max(target_max, user_min))
+        
+        if final_bat_min > final_bat_max:
+             final_bat_max = final_bat_min 
+             
+        final_p_bat = round(random.uniform(final_bat_min, final_bat_max), 2)
+        
     else:
         final_p_bat = p_bat_fix
 

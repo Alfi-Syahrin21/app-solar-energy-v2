@@ -29,15 +29,15 @@ def get_available_years(nama_lokasi, nama_titik):
     files = os.listdir(path_price)
     years = []
     for f in files:
-        if f.endswith('.csv'):
-            try: years.append(int(f.replace('.csv', '')))
+        if f.endswith('.parquet'):
+            try: years.append(int(f.replace('.parquet', '')))
             except ValueError: pass 
     return sorted(years)
 
 def get_list_load_profiles():
     """Mengambil list semua file CSV di folder load_profile"""
     if not os.path.exists(LOAD_PROFILE_DIR): return []
-    return sorted([f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.csv')])
+    return sorted([f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.parquet')])
 
 
 @st.cache_data(show_spinner=False)
@@ -45,9 +45,12 @@ def load_solar_array(path_file):
     """
     Load CSV Solar -> Langsung ambil kolom data -> Jadi Array.
     """
+    if path_file.endswith('.csv'):
+        path_file = path_file.replace('.csv', '.parquet')
+
     if not os.path.exists(path_file): return None, None
     try:
-        df = pd.read_csv(path_file)
+        df = pd.read_parquet(path_file)
         
         col_irr = next((c for c in df.columns if 'irradiance' in c.lower() or 'solar' in c.lower() or 'glob' in c.lower()), None)
         col_temp = next((c for c in df.columns if 'temperature' in c.lower() or 'amb' in c.lower()), None)
@@ -69,16 +72,16 @@ def load_load_profile_array(specific_filename=None):
     if not os.path.exists(LOAD_PROFILE_DIR): return None, "No Folder"
     
     if specific_filename:
-        selected_file = specific_filename
+        selected_file = specific_filename.replace('.csv', '.parquet')
     else:
-        files = [f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.csv')]
+        files = [f for f in os.listdir(LOAD_PROFILE_DIR) if f.endswith('.parquet')]
         if not files: return None, "Empty"
         selected_file = random.choice(files)
     
     path_file = os.path.join(LOAD_PROFILE_DIR, selected_file)
     
     try:
-        df = pd.read_csv(path_file)
+        df = pd.read_parquet(path_file)
         
         col_load = next((c for c in df.columns if 'beban' in c.lower() or 'load' in c.lower()), None)
         if not col_load: return None, "Invalid CSV"
@@ -89,7 +92,7 @@ def load_load_profile_array(specific_filename=None):
 
 def get_master_solar_path(folder_path):
     if not os.path.exists(folder_path): return None
-    files = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')])
+    files = sorted([f for f in os.listdir(folder_path) if f.endswith('.parquet')])
     return os.path.join(folder_path, files[0]) if files else None
 
 def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year, fixed_load_file=None):
@@ -118,11 +121,11 @@ def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year, fixed_loa
     list_df_final = []
 
     for year in range(start_year, end_year + 1):
-        file_price = os.path.join(path_price_dir, f"{year}.csv")
+        file_price = os.path.join(path_price_dir, f"{year}.parquet")
         if not os.path.exists(file_price): continue
             
         try:
-            df_price = pd.read_csv(file_price)
+            df_price = pd.read_parquet(file_price)
             df_price['timestamp'] = pd.to_datetime(df_price['timestamp'])
             df_price = df_price.sort_values('timestamp').reset_index(drop=True)
 

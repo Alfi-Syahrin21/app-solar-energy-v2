@@ -385,7 +385,8 @@ if st.session_state['hasil_simulasi'] is not None:
         'temperature', 
         'solar_output_kw', 
         'load_profile',
-        'battery_soc', 
+        'price_profile',       
+        'battery_soc_pct',     
         'battery_power_ac_kw',
         'grid_net_kw',
     ]
@@ -396,7 +397,8 @@ if st.session_state['hasil_simulasi'] is not None:
         'irradiance': 'irradiance_Wh/m^2',
         'temperature': 'temperature_C',
         'load_profile': 'load_kW',
-        'price_profile': 'price_AUD'
+        'price_profile': 'price_AUD',
+        'battery_soc_pct': 'battery_soc_%'
     })
     
     csv = df_export.to_csv(index=False).encode('utf-8')

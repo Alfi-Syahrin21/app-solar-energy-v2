@@ -1,22 +1,33 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.colors as mcolors
 import numpy as np
 import calendar
 import pandas as pd
 
 def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
-
+    """
+    Menampilkan visualisasi tahunan.
+    Optimasi diterapkan pada Chart Energi (Barchart) & Grid Net.
+    Price Profile tetap mempertahankan resolusi 5 menit (High Fidelity).
+    """
     
-    factor = 5/60 
+    factor = 5.0 / 60.0 
+    
+    df_calc = df_vis_year.copy()
+    df_calc['pv_kwh'] = df_calc['solar_output_kw'] * factor
+    df_calc['bat_dis_kwh'] = df_calc[col_bat].clip(lower=0) * factor
+    
+    # Grid Import
+    df_calc['grid_imp_kwh'] = df_calc['grid_net_kw'].clip(lower=0) * factor
+
+    df_calc = df_calc.set_index('timestamp')
+
     st.markdown(f"### 📅 Annual Overview ({selected_vis_year})")
 
-    df_monthly_vis = df_vis_year.set_index('timestamp').copy()
-    df_monthly_vis['pv_kwh'] = df_monthly_vis['solar_output_kw'] * factor
-    df_monthly_vis['bat_dis_kwh'] = df_monthly_vis[col_bat].apply(lambda x: x if x > 0 else 0) * factor
-    df_monthly_vis['grid_imp_kwh'] = df_monthly_vis['grid_net_kw'].apply(lambda x: x if x > 0 else 0) * factor
-
-    df_monthly_agg = df_monthly_vis[['pv_kwh', 'bat_dis_kwh', 'grid_imp_kwh']].resample('ME').sum()
+    # AGGREGASI DATA BULANAN  ---
+    df_monthly_agg = df_calc[['pv_kwh', 'bat_dis_kwh', 'grid_imp_kwh']].resample('ME').sum()
     df_monthly_agg['month_name'] = df_monthly_agg.index.strftime('%b') 
     
     df_monthly_agg['total_supply'] = df_monthly_agg['pv_kwh'] + df_monthly_agg['bat_dis_kwh'] + df_monthly_agg['grid_imp_kwh']
@@ -29,7 +40,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     colors = ['#1f77b4', '#8c564b', '#add8e6'] 
     months = df_monthly_agg['month_name']
 
-    # --- BARIS 1 (Energy Source kWh & Percentage) ---
+    # --- VISUALISASI BARIS 1 (Energy Source & Percentage) ---
     c1, c2 = st.columns(2)
     
     with c1:
@@ -59,26 +70,25 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         plt.tight_layout() 
         st.pyplot(fig2)
 
-    # --- BARIS 2 (VPP Heatmap & Negative Price Heatmap) ---
+    # --- VISUALISASI BARIS 2 (HEATMAPS) ---
     c3, c4 = st.columns(2)
 
+    def create_heatmap_matrix(series_data):
+        daily = series_data.resample('D').sum().reset_index()
+        daily['m'] = daily['timestamp'].dt.month
+        daily['d'] = daily['timestamp'].dt.day
+        pivot = daily.pivot(index='m', columns='d', values=series_data.name)
+        pivot = pivot.reindex(index=range(1, 13), columns=range(1, 32)).fillna(0)
+        return pivot.to_numpy()
+
     with c3:
-        if 'vpp_status' in df_vis_year.columns:
-            df_vis_year['vpp_minutes'] = df_vis_year['vpp_status'].apply(lambda x: 5 if x else 0)
+        if 'vpp_status' in df_calc.columns:
+            vpp_minutes_series = df_calc['vpp_status'].astype(int) * 5
+            vpp_minutes_series.name = 'vpp_minutes'
             
-            daily_vpp = df_vis_year.set_index('timestamp')['vpp_minutes'].resample('D').sum().reset_index()
-            
-            daily_vpp['m'] = daily_vpp['timestamp'].dt.month
-            daily_vpp['d'] = daily_vpp['timestamp'].dt.day
-            
-            heatmap_data = daily_vpp.pivot(index='m', columns='d', values='vpp_minutes')
-            heatmap_data = heatmap_data.reindex(index=range(1, 13), columns=range(1, 32))
-            
-            data_matrix = heatmap_data.fillna(0).to_numpy()
+            data_matrix = create_heatmap_matrix(vpp_minutes_series)
             
             fig_heat, ax_h = plt.subplots(figsize=(6, 4))
-            
-            import matplotlib.colors as mcolors
             cmap_custom = mcolors.LinearSegmentedColormap.from_list("WhiteOrange", ["white", "orange", "#8B4500"])
             
             max_val = data_matrix.max()
@@ -90,7 +100,6 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             ax_h.set_xticklabels(np.arange(1, 32, 2), fontsize=7)
             ax_h.set_yticks(np.arange(12))
             ax_h.set_yticklabels([calendar.month_abbr[i] for i in range(1, 13)], fontsize=8)
-            
             ax_h.set_title("VPP Discharge")
             
             cbar = ax_h.figure.colorbar(im, ax=ax_h, fraction=0.046, pad=0.04)
@@ -103,23 +112,15 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             st.info("No VPP Status Data Available")
 
     with c4:
-        col_price = 'price_import' if 'price_import' in df_vis_year.columns else 'price_profile'
+        col_price = 'price_import' if 'price_import' in df_calc.columns else 'price_profile'
         
-        if col_price in df_vis_year.columns:
-            df_vis_year['neg_minutes'] = df_vis_year[col_price].apply(lambda x: 5 if x < 0 else 0)
+        if col_price in df_calc.columns:
+            neg_minutes_series = (df_calc[col_price] < 0).astype(int) * 5
+            neg_minutes_series.name = 'neg_minutes'
             
-            daily_neg = df_vis_year.set_index('timestamp')['neg_minutes'].resample('D').sum().reset_index()
-            
-            daily_neg['m'] = daily_neg['timestamp'].dt.month
-            daily_neg['d'] = daily_neg['timestamp'].dt.day
-            
-            heatmap_neg = daily_neg.pivot(index='m', columns='d', values='neg_minutes')
-            heatmap_neg = heatmap_neg.reindex(index=range(1, 13), columns=range(1, 32))
-            
-            data_matrix_neg = heatmap_neg.fillna(0).to_numpy()
+            data_matrix_neg = create_heatmap_matrix(neg_minutes_series)
             
             fig_neg, ax_n = plt.subplots(figsize=(6, 4))
-            
             cmap_neg = mcolors.LinearSegmentedColormap.from_list("WhiteGreen", ["white", "#2ecc71", "#006400"])
             
             max_val_n = data_matrix_neg.max()
@@ -131,7 +132,6 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             ax_n.set_xticklabels(np.arange(1, 32, 2), fontsize=7)
             ax_n.set_yticks(np.arange(12))
             ax_n.set_yticklabels([calendar.month_abbr[i] for i in range(1, 13)], fontsize=8)
-            
             ax_n.set_title("VPP Charge")
             
             cbar_n = ax_n.figure.colorbar(im_n, ax=ax_n, fraction=0.046, pad=0.04)
@@ -144,23 +144,31 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             st.info("Price Data Not Available")
 
 
-    #Baris 3 Normal Vs VPP Discharge
-    df_bat = df_vis_year.copy()
-    df_bat['vpp_dis_kw'] = df_bat.apply(
-        lambda x: x[col_bat] if (x.get('vpp_status') == True and x[col_bat] > 0) else 0, axis=1
-    )
-    df_bat['norm_dis_kw'] = df_bat.apply(
-        lambda x: x[col_bat] if (x.get('vpp_status') == False and x[col_bat] > 0) else 0, axis=1
-    )
-    daily_bat = df_bat.set_index('timestamp')[['vpp_dis_kw', 'norm_dis_kw']].resample('D').sum() * factor
+    # --- VISUALISASI BARIS 3 (VPP vs Normal Stackplot) ---
+    arr_dis_kwh = df_calc['bat_dis_kwh'].to_numpy()
+    
+    if 'vpp_status' in df_calc.columns:
+        arr_vpp_stat = df_calc['vpp_status'].to_numpy().astype(bool)
+        series_vpp = np.where(arr_vpp_stat, arr_dis_kwh, 0)
+        series_norm = np.where(~arr_vpp_stat, arr_dis_kwh, 0)
+    else:
+        series_vpp = np.zeros_like(arr_dis_kwh)
+        series_norm = arr_dis_kwh
+
+    df_stack = pd.DataFrame({
+        'vpp': series_vpp,
+        'norm': series_norm
+    }, index=df_calc.index)
+    
+    daily_bat = df_stack.resample('D').sum()
     
     fig_break, ax_b = plt.subplots(figsize=(12, 3.5))
     colors_bat = ['#d35400', '#55a868'] 
     labels_bat = ['VPP Discharge', 'Normal Discharge']
     
     ax_b.stackplot(daily_bat.index, 
-                   daily_bat['vpp_dis_kw'], 
-                   daily_bat['norm_dis_kw'],
+                   daily_bat['vpp'], 
+                   daily_bat['norm'],
                    colors=colors_bat, labels=labels_bat, alpha=0.8)
     
     ax_b.set_title("VPP Discharge VS Normal Discharge")
@@ -177,28 +185,29 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     st.pyplot(fig_break)
 
 
-    # Baris 4 Price Profile
-    if 'price_profile' in df_vis_year.columns:
-        df_price_profile = df_vis_year.set_index('timestamp')['price_profile']
+    # --- VISUALISASI BARIS 4 (Price Profile) ---
+    if 'price_profile' in df_calc.columns:
+        
+        df_price_raw = df_calc['price_profile']
         
         fig_price, ax_p = plt.subplots(figsize=(12, 3)) 
         
-        ax_p.plot(df_price_profile.index, df_price_profile, color='black', linewidth=0.5, alpha=0.3)
+        ax_p.plot(df_price_raw.index, df_price_raw, color='black', linewidth=0.5, alpha=0.3)
         
-        ax_p.fill_between(df_price_profile.index, df_price_profile, 0, 
-                          where=(df_price_profile >= 0), 
+        ax_p.fill_between(df_price_raw.index, df_price_raw, 0, 
+                          where=(df_price_raw >= 0), 
                           interpolate=True, color='#2ecc71', alpha=0.6, label='Positive Price')
         
-        ax_p.fill_between(df_price_profile.index, df_price_profile, 0, 
-                          where=(df_price_profile < 0), 
+        ax_p.fill_between(df_price_raw.index, df_price_raw, 0, 
+                          where=(df_price_raw < 0), 
                           interpolate=True, color='#e74c3c', alpha=0.6, label='Negative Price')
         
         ax_p.set_ylabel("Price (AUD)")
-        ax_p.set_title("Electricity Spot Market Price (5 Minutes)")
+        ax_p.set_title("Electricity Spot Market Price (5 Minutes)") 
 
         ax_p.xaxis.set_major_locator(mdates.MonthLocator())
         ax_p.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-        ax_p.set_xlim(df_price_profile.index[0], df_price_profile.index[-1])
+        ax_p.set_xlim(df_price_raw.index[0], df_price_raw.index[-1])
         
         ax_p.grid(True, alpha=0.3)
         ax_p.legend(loc='upper right', fontsize='small')
@@ -207,24 +216,18 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     else:
         st.warning("Price profile data not found.")
     
-    #Baris ke 4 Grid Net
-
-    if 'grid_net_kw' in df_vis_year.columns:
-        factor = 5/60
-        s_import = df_vis_year.set_index('timestamp')['grid_net_kw'].clip(lower=0)
-        
-        s_export = df_vis_year.set_index('timestamp')['grid_net_kw'].clip(upper=0)
-        
-        df_daily_imp = (s_import * factor).resample('D').sum()
-        df_daily_exp = (s_export * factor).resample('D').sum()
+    # --- VISUALISASI BARIS 5 (Grid Net) ---
+    if 'grid_net_kw' in df_calc.columns:
+        s_imp_daily = df_calc['grid_imp_kwh'].resample('D').sum()
+        s_exp_daily = df_calc['grid_net_kw'].clip(upper=0).resample('D').sum() * factor
         
         fig_grid, ax_g = plt.subplots(figsize=(12, 3)) 
         
-        ax_g.plot(df_daily_imp.index, df_daily_imp, color='#e74c3c', linewidth=1, label='Total Import')
-        ax_g.fill_between(df_daily_imp.index, df_daily_imp, 0, color='#e74c3c', alpha=0.5)
+        ax_g.plot(s_imp_daily.index, s_imp_daily, color='#e74c3c', linewidth=1, label='Total Import')
+        ax_g.fill_between(s_imp_daily.index, s_imp_daily, 0, color='#e74c3c', alpha=0.5)
         
-        ax_g.plot(df_daily_exp.index, df_daily_exp, color='#2ecc71', linewidth=1, label='Total Export')
-        ax_g.fill_between(df_daily_exp.index, df_daily_exp, 0, color='#2ecc71', alpha=0.5)
+        ax_g.plot(s_exp_daily.index, s_exp_daily, color='#2ecc71', linewidth=1, label='Total Export')
+        ax_g.fill_between(s_exp_daily.index, s_exp_daily, 0, color='#2ecc71', alpha=0.5)
         
         ax_g.axhline(0, color='black', linewidth=0.8, linestyle='--')
         
@@ -233,7 +236,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
         ax_g.xaxis.set_major_locator(mdates.MonthLocator())
         ax_g.xaxis.set_major_formatter(mdates.DateFormatter('%b'))
-        ax_g.set_xlim(df_daily_imp.index[0], df_daily_imp.index[-1])
+        ax_g.set_xlim(s_imp_daily.index[0], s_imp_daily.index[-1])
         
         ax_g.grid(True, alpha=0.3)
         ax_g.legend(loc='upper right', fontsize='small')
@@ -244,13 +247,16 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
 
 def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_vis_year):
-
+   
     st.markdown(f"### 📉 Monthly Analysis ({selected_month_name} {selected_vis_year})")
     
+    if not isinstance(df_vis_month.index, pd.DatetimeIndex):
+        df_vis_month = df_vis_month.set_index('timestamp')
+
     c1, c2 = st.columns(2)
     
     with c1:
-        df_profile = df_vis_month.groupby(df_vis_month['timestamp'].dt.hour)[['solar_output_kw', col_load]].mean()
+        df_profile = df_vis_month.groupby(df_vis_month.index.hour)[['solar_output_kw', col_load]].mean()
         
         max_val = max(df_profile['solar_output_kw'].max(), df_profile[col_load].max())
         y_limit = max_val * 1.1 if max_val > 0 else 1.0
@@ -282,16 +288,15 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
         st.pyplot(fig_prof)
 
     with c2:
-        factor = 5/60
-        df_heat_solar = df_vis_month.set_index('timestamp')[['irradiance']].resample('h').sum() * factor
-        df_heat_solar = df_heat_solar.reset_index()
-        df_heat_solar['d'] = df_heat_solar['timestamp'].dt.day
-        df_heat_solar['h'] = df_heat_solar['timestamp'].dt.hour
+        factor = 5.0/60.0
+        df_heat_solar = df_vis_month[['irradiance']].resample('h').sum() * factor
+        df_heat_solar['d'] = df_heat_solar.index.day
+        df_heat_solar['h'] = df_heat_solar.index.hour
         
         solar_matrix = df_heat_solar.pivot(index='h', columns='d', values='irradiance')
         
-        curr_year = df_vis_month['timestamp'].dt.year.iloc[0]
-        curr_month = df_vis_month['timestamp'].dt.month.iloc[0]
+        curr_year = df_vis_month.index.year[0]
+        curr_month = df_vis_month.index.month[0]
         days_in_month = calendar.monthrange(curr_year, curr_month)[1]
         
         solar_matrix = solar_matrix.reindex(index=range(24), columns=range(1, days_in_month + 1)).fillna(0)

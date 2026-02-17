@@ -211,7 +211,7 @@ if btn_run:
 
     if not use_rand_bat:
 
-        segment = 10
+        segment = 5
         bat_total_range = p_bat_max - p_bat_min
         bat_segment_width = bat_total_range / segment
 

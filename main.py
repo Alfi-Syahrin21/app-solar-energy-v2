@@ -200,34 +200,47 @@ st.markdown("---")
 btn_run = st.button("Process Parameter and Generate Data", type="primary", use_container_width=True)
 
 if btn_run:
+    is_solar_fixed = False 
     if not use_rand_solar:
         final_p_solar = round(random.uniform(p_solar_min, p_solar_max), 2)
+        
     else:
         final_p_solar = p_solar_fix
-        
+        is_solar_fixed = True
+
+
     if not use_rand_bat:
-        ratio_min = 0.7
-        ratio_max = 1.3
-        
-        ideal_min = final_p_solar * ratio_min
-        ideal_max = final_p_solar * ratio_max
-        
-        user_min = p_bat_min
-        user_max = p_bat_max
-        
-        target_min = (user_min + ideal_min) / 2
-        target_max = (user_max + ideal_max) / 2
-        
-        final_bat_min = max(user_min, min(target_min, user_max))
-        final_bat_max = min(user_max, max(target_max, user_min))
-        
-        if final_bat_min > final_bat_max:
-             final_bat_max = final_bat_min 
-             
+
+        segment = 10
+        bat_total_range = p_bat_max - p_bat_min
+        bat_segment_width = bat_total_range / segment
+
+        if is_solar_fixed:
+            mid = (segment - 1) // 2
+            start_seg = max(0, mid - 1)
+            end_seg   = min(segment - 1, mid + 1)
+
+        else:
+            solar_range = p_solar_max - p_solar_min
+
+            if solar_range <= 0:
+                current_segment = (segment - 1) // 2
+            else:
+                relative_pos = (final_p_solar - p_solar_min) / solar_range
+                raw_segment = int(relative_pos * segment)
+                current_segment = max(0, min(segment - 1, raw_segment))
+
+            start_seg = max(0, current_segment - 1)
+            end_seg   = min(segment - 1, current_segment + 1)
+
+        final_bat_min = p_bat_min + (start_seg * bat_segment_width)
+        final_bat_max = p_bat_min + ((end_seg + 1) * bat_segment_width)
+
         final_p_bat = round(random.uniform(final_bat_min, final_bat_max), 2)
-        
+
     else:
         final_p_bat = p_bat_fix
+
 
     if not use_rand_load:
         all_files = loader.get_list_load_profiles()

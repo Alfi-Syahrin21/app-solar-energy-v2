@@ -187,9 +187,10 @@ with col_spec:
         else:
             p_bat_fix = st.number_input("Capacity (kWh)", 1.0, 200.0, 10.0, 1.0, key="bat_fix")
 
-        b1, b2 = st.columns(2)
-        p_charger_pwr = b1.number_input("(-) Charge (kW)", 0, 10, 5, 1, key="bat_chg")
-        p_discharger_pwr = b2.number_input("(+) Discharge (kW)", 0, 10, 5, 1, key="bat_dis")
+        # b1, b2 = st.columns(2)
+        # p_charger_pwr = b1.number_input("(-) Charge (kW)", 0, 10, 5, 1, key="bat_chg")
+        # p_discharger_pwr = b2.number_input("(+) Discharge (kW)", 0, 10, 5, 1, key="bat_dis")
+        
         p_eff = st.number_input("Round-Trip Efficiency (%)", 50, 100, 95, key="bat_eff") / 100
         p_soc = st.slider("Initial SoC (%)", 0, 100, 50, key="bat_soc_init") / 100
         range_soc = st.slider("SoC Constraint (%)", min_value=0, max_value=100, value=(10, 90), key="bat_soc_range")
@@ -241,6 +242,8 @@ if btn_run:
     else:
         final_p_bat = p_bat_fix
 
+    # power Charger/Discharge battery
+    auto_charge_power = round(final_p_bat * 0.3, 2)
 
     if not use_rand_load:
         all_files = loader.get_list_load_profiles()
@@ -270,8 +273,8 @@ if btn_run:
             'battery_capacity_kwh': final_p_bat, 
             'battery_efficiency': p_eff,
             'battery_initial_soc': p_soc,
-            'max_charge_kw': p_charger_pwr,
-            'max_discharge_kw': p_discharger_pwr,
+            'max_charge_kw': auto_charge_power,
+            'max_discharge_kw': auto_charge_power,
             'soc_min_pct': p_min_soc,
             'soc_max_pct': p_max_soc,
             'dispatch_price_threshold': vpp_price, 
@@ -314,8 +317,8 @@ if btn_run:
             'bat': final_p_bat,
             'bat_eff': p_eff,
             'bat_soc_init': p_soc,
-            'bat_charge_kw': p_charger_pwr,
-            'bat_discharge_kw': p_discharger_pwr,
+            'bat_charge_kw': auto_charge_power,
+            'bat_discharge_kw': auto_charge_power,
             'soc_min': p_min_soc,
             'soc_max': p_max_soc,
             'vpp_thresh': vpp_price,

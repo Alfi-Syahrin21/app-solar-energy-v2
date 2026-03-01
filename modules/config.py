@@ -142,6 +142,10 @@ def apply_row_to_session(selected_row):
                 if not pd.isna(val):
                     if db_col == "bat_init_soc":
                         st.session_state[widget_key] = int(float(val) * 100)
+                    elif widget_key in ["vpp_threshold", "bat_eff", "date_start", "date_end"]:
+                        st.session_state[widget_key] = int(float(val))
+                    elif widget_key in ["sol_min", "sol_max", "sol_fix", "sol_temp", "sol_pr", "bat_min", "bat_max", "bat_fix", "exp_tariff", "imp_tariff", "pp", "po", "ps"]:
+                        st.session_state[widget_key] = float(val)
                     else:
                         st.session_state[widget_key] = val
                 

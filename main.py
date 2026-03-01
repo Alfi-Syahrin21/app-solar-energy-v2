@@ -266,7 +266,7 @@ if btn_run:
         final_p_bat = p_bat_fix
 
     # power Charger/Discharge battery
-    auto_charge_power = round(final_p_bat * 0.3, 2)
+    auto_charge_power = round(final_p_bat * 0.4, 0)
 
     if not use_rand_load:
         all_files = loader.get_list_load_profiles()

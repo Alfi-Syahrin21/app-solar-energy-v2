@@ -116,7 +116,7 @@ with col_dp:
 
         st.info("💲 Tariff")
         st.text("Export")
-        exp_price = st.number_input("Flat Price (AUD/kWh)", 0.0, 1.0, value=0.08, step=0.01, key="exp_tariff")
+        exp_price = st.number_input("Flat Price (AUD/kWh)", 0.0, 1.0, step=0.01, key="exp_tariff")
 
         st.text("Import")
         use_ToU = st.toggle("Flat / Time-Of-Use (ToU)", key="chk_tou")
@@ -128,21 +128,21 @@ with col_dp:
             c1, c2, c3 = st.columns([1, 1, 1])
             c1.time_input("Start", key="t_p_start", on_change=t_utils.sync_peak_start)
             c2.time_input("End", key="t_p_end", on_change=t_utils.sync_peak_end)
-            p_peak = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, value=0.45, step=0.01, key="pp")
+            p_peak = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, step=0.01, key="pp")
 
             st.markdown("Off-Peak")
             c1, c2, c3 = st.columns([1, 1, 1])
             c1.time_input("Start", key="t_o_start", on_change=t_utils.sync_offpeak_start, label_visibility="collapsed")
             c2.time_input("End", key="t_o_end", on_change=t_utils.sync_offpeak_end, label_visibility="collapsed")
-            p_offpeak = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, value=0.15, step=0.01, label_visibility="collapsed", key="po")
+            p_offpeak = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, step=0.01, label_visibility="collapsed", key="po")
 
             st.markdown("Shoulder Time")
             c1, c2, c3 = st.columns([1, 1, 1])
             c1.time_input("Start", key="t_s_start", on_change=t_utils.sync_shoulder_start, label_visibility="collapsed")
             c2.time_input("End", key="t_s_end", on_change=t_utils.sync_shoulder_end, label_visibility="collapsed")
-            p_shoulder = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, value=0.25, step=0.01, label_visibility="collapsed", key="ps")
+            p_shoulder = c3.number_input("Price (AUD/kWh)", 0.0, 2.0, step=0.01, label_visibility="collapsed", key="ps")
         else:
-            p_flat = st.number_input("Flat Price (AUD/kWh)", 0.0, 2.0, value=0.2, step=0.01, key="imp_tariff")
+            p_flat = st.number_input("Flat Price (AUD/kWh)", 0.0, 2.0, step=0.01, key="imp_tariff")
 
 with col_spec:
     st.subheader("⚙️ System Specification")
@@ -166,7 +166,6 @@ with col_spec:
         use_rand_bat = st.toggle("Randomize / Fixed Size", key="chk_bat")
         if not use_rand_bat:
             bc1, bc2 = st.columns(2)
-            # VALUE DIHAPUS
             p_bat_min = bc1.number_input("Min (kWh)", 0.0, 1000.0, step=1.0, key="bat_min")
             p_bat_max = bc2.number_input("Max (kWh)", 0.0, 1000.0, step=1.0, key="bat_max")
         else:

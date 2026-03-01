@@ -7,7 +7,8 @@ import random
 import json
 import calendar
 
-from datetime import time
+from datetime import time, datetime
+from streamlit_gsheets import GSheetsConnection
 from modules import loader, calculator
 from modules import tariff_utils as t_utils
 from modules import visualizer
@@ -35,8 +36,160 @@ def apply_config(uploaded_file):
         except Exception as e:
             st.error(f"Error loading config: {e}")
 
+# ==========================================
+# FUNGSI MANAJEMEN GOOGLE SHEETS
+# ==========================================
+TAB_CONFIG = "Config_History"
+def get_gsheets_connection():
+    """Membuat koneksi ke Google Sheets menggunakan st.connection"""
+    return st.connection("gsheets", type=GSheetsConnection)
+
+def load_config_history():
+    """Mengambil 10 data konfigurasi terakhir dari Tab 'Config_History'"""
+    try:
+        conn = get_gsheets_connection()
+        # Ganti URL ini dengan URL file Google Sheets 'Simulasi_DB' Anda nanti di file secrets
+        df_history = conn.read(worksheet=TAB_CONFIG, ttl=300) 
+        
+        # Bersihkan data (buang baris kosong jika ada)
+        df_history = df_history.dropna(subset=['Config_Name'])
+        
+        # Ambil 10 baris terakhir, urutkan dari yang terbaru (paling bawah) ke atas
+        return df_history.tail(10).iloc[::-1]
+    except Exception as e:
+        st.error(f"⚠️ Gagal membaca histori config dari Google Sheets: {e}")
+        raise e
+
+def save_config_to_sheets(config_name, current_state):
+    """Menyimpan state/pengaturan saat ini ke baris baru di Google Sheets"""
+    try:
+        conn = get_gsheets_connection()
+        
+        # 1. Baca data yang sudah ada
+        df_existing = conn.read(worksheet=TAB_CONFIG, ttl=0)
+        df_existing = df_existing.dropna(subset=['Config_Name'])
+        
+        # 2. Siapkan baris data baru sesuai dengan urutan header (28 Kolom)
+        # Pastikan key dari current_state sesuai dengan st.session_state yang kita miliki
+        new_row = {
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Config_Name": config_name,
+            
+            # Waktu & Durasi
+            "start_year": current_state.get("date_start", 2020),
+            "end_year": current_state.get("date_end", 2020),
+            
+            # Lokasi & Dataset
+            "use_rand_location": current_state.get("chk_loc", True),
+            "region_fix": current_state.get("loc_region", ""),
+            "point_fix": current_state.get("loc_point", ""),
+            "use_rand_load_profile": current_state.get("chk_load", False),
+            "load_profile_fix": current_state.get("sel_load_file", ""),
+            
+            # Solar PV
+            "use_rand_solar": current_state.get("chk_solar", False),
+            "solar_min": current_state.get("sol_min", 4.0),
+            "solar_max": current_state.get("sol_max", 6.0),
+            "solar_fix": current_state.get("sol_fix", 5.0),
+            "temp_coeff": current_state.get("sol_temp", -0.004),
+            "pr": current_state.get("sol_pr", 0.8),
+            
+            # Battery
+            "use_rand_bat": current_state.get("chk_bat", False),
+            "bat_min": current_state.get("bat_min", 8.0),
+            "bat_max": current_state.get("bat_max", 12.0),
+            "bat_fix": current_state.get("bat_fix", 10.0),
+            "bat_eff": current_state.get("bat_eff", 0.95),
+            "bat_init_soc": current_state.get("bat_soc_init", 0.5),
+            "soc_min": current_state.get("bat_soc_range", (10, 90))[0] / 100 if "bat_soc_range" in current_state else 0.1,
+            "soc_max": current_state.get("bat_soc_range", (10, 90))[1] / 100 if "bat_soc_range" in current_state else 0.9,
+            
+            # ToU / Tariff
+            "vpp_thresh": current_state.get("vpp_threshold", 800),
+            "t_peak_start": time_encoder(current_state.get("t_p_start", time(17,0))),
+            "t_peak_end": time_encoder(current_state.get("t_p_end", time(20,0))),
+            "t_offpeak_start": time_encoder(current_state.get("t_o_start", time(22,0))),
+            "t_offpeak_end": time_encoder(current_state.get("t_o_end", time(6,0)))
+        }
+        
+        # 3. Gabungkan dan Timpa file di Google Sheets
+        df_new = pd.DataFrame([new_row])
+        df_updated = pd.concat([df_existing, df_new], ignore_index=True)
+        conn.update(worksheet=TAB_CONFIG, data=df_updated)
+        
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"⚠️ Gagal menyimpan ke Google Sheets: {e}")
+        return False
+    
+def apply_row_to_session(selected_row):
+    """Fungsi helper untuk menyuntikkan data sebaris ke dalam memori Streamlit"""
+    mapping = {
+        "use_rand_location": "chk_loc", "region_fix": "loc_region", "point_fix": "loc_point",
+        "use_rand_load_profile": "chk_load", "load_profile_fix": "sel_load_file",
+        "use_rand_solar": "chk_solar", "solar_min": "sol_min", "solar_max": "sol_max",
+        "solar_fix": "sol_fix", "temp_coeff": "sol_temp", "pr": "sol_pr",
+        "use_rand_bat": "chk_bat", "bat_min": "bat_min", "bat_max": "bat_max",
+        "bat_fix": "bat_fix", "bat_eff": "bat_eff", "bat_init_soc": "bat_soc_init",
+        "vpp_thresh": "vpp_threshold", "t_peak_start": "t_p_start", "t_peak_end": "t_p_end",
+        "t_offpeak_start": "t_o_start", "t_offpeak_end": "t_o_end"
+    }
+    for db_col, widget_key in mapping.items():
+        if db_col in selected_row:
+            val = selected_row[db_col]
+            if db_col.startswith("t_") and isinstance(val, str):
+                try:
+                    h, m = map(int, val.split(':'))
+                    st.session_state[widget_key] = time(h, m)
+                except: pass
+            elif widget_key.startswith("chk_"):
+                if pd.isna(val): st.session_state[widget_key] = False
+                elif isinstance(val, str): st.session_state[widget_key] = (val.strip().upper() == "TRUE")
+                else: st.session_state[widget_key] = bool(val)
+            else:
+                st.session_state[widget_key] = val
+                
+    if "soc_min" in selected_row and "soc_max" in selected_row:
+        st.session_state["bat_soc_range"] = (int(float(selected_row["soc_min"])*100), int(float(selected_row["soc_max"])*100))
+    if "start_year" in selected_row and not pd.isna(selected_row["start_year"]): 
+        st.session_state["date_start"] = int(float(selected_row["start_year"]))
+    if "end_year" in selected_row and not pd.isna(selected_row["end_year"]): 
+        st.session_state["date_end"] = int(float(selected_row["end_year"]))
+
 
 st.set_page_config(page_title="CER Simulation Data Generator", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    /* 1. Sembunyikan indikator "Running..." global di pojok kanan atas */
+    div[data-testid="stStatusWidget"] {
+        visibility: hidden;
+    }
+    
+    /* 2. Sembunyikan notifikasi cache "Running gsheets..." di pojok (Toast) */
+    div[data-testid="stToastContainer"] {
+        display: none;
+    }
+    
+    /* 3. JURUS RAHASIA: Sembunyikan Cache Spinner bawaan Google Sheets di tengah layar */
+    div[data-testid="stSpinner"]:has(code) {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+if 'app_initialized' not in st.session_state:
+    st.session_state['app_initialized'] = True
+    df_hist = load_config_history()
+    if not df_hist.empty:
+        # Karena df_history sudah dibalik (.iloc[::-1]), index 0 adalah data teratas (terbaru)
+        latest_config = df_hist.iloc[0]
+        apply_row_to_session(latest_config)
+        st.session_state['active_config'] = latest_config['Config_Name']
 
 if 'hasil_simulasi' not in st.session_state:
     st.session_state['hasil_simulasi'] = None
@@ -44,31 +197,57 @@ if 'hasil_simulasi' not in st.session_state:
     st.session_state['info_simulasi'] = ""
 
 with st.sidebar:
-    st.header("💾 Config Manager")
-    st.markdown("Save your current setup or load existing one.")
+    st.header("☁️ Setup Config Manager")
+    active_cfg = st.session_state.get('active_config', 'Belum Ada / Default')
+    st.success(f"**Active Config:** {active_cfg}")
+    st.markdown("Save and Load configuration")
     
-    uploaded_file = st.file_uploader("📂 Load Config (JSON)", type=["json"])
-    if uploaded_file:
-        if st.button("Apply Loaded Config"):
-            apply_config(uploaded_file)
+    # ==========================================
+    # 1. FITUR LOAD DARI GOOGLE SHEETS
+    # ==========================================
+    st.subheader("📂 Load History Config")
+    df_history = load_config_history()
     
+    if not df_history.empty:
+        # Buat label dropdown biar rapi: "Timestamp | Nama Config"
+        history_options = df_history['Timestamp'].astype(str) + " | " + df_history['Config_Name'].astype(str)
+        selected_history_str = st.selectbox("Select Config:", history_options.tolist())
+        
+        if st.button("Apply Config", use_container_width=True):
+            # 1. Cari data baris yang dipilih
+            selected_row = df_history[history_options == selected_history_str].iloc[0]
+            apply_row_to_session(selected_row)
+            st.session_state['active_config'] = selected_row['Config_Name']
+
+            st.success("✅ Config Applied! Rerunning...")
+            tm.sleep(0.5)
+            st.rerun()
+    else:
+        st.info("Belum ada histori di Google Sheets.")
+        
     st.divider()
-    if st.button("Prepare Config for Download"):
-        config_data = {}
-        exclude_keys = ['hasil_simulasi', 'used_params', 'info_simulasi']
-        
-        for key in st.session_state:
-            if key not in exclude_keys and not key.startswith("FormSubmit"):
-                config_data[key] = st.session_state[key]
-        
-        json_str = json.dumps(config_data, default=time_encoder, indent=2)
-        
-        st.download_button(
-            label="📥 Download Config (.json)",
-            data=json_str,
-            file_name="simulation_config.json",
-            mime="application/json"
-        )
+    
+    # ==========================================
+    # 2. FITUR SAVE KE GOOGLE SHEETS
+    # ==========================================
+    st.subheader("💾 Save Current Config")
+    new_config_name = st.text_input("Config Name (ex: Exam Config 1)")
+    
+    if st.button("Save Config", type="primary", use_container_width=True):
+        if new_config_name.strip() == "":
+            st.warning("⚠️ Empty Config Name")
+        else:
+            with st.spinner("Saving to Google Sheets..."):
+                # Lempar state aplikasi saat ini ke fungsi save yang kita buat
+                success = save_config_to_sheets(new_config_name, st.session_state)
+                
+                if success:
+                    st.session_state['active_config'] = new_config_name
+                    st.success("✅ Succesfully Saved Config!")
+                    tm.sleep(1)
+                    st.rerun() # Refresh agar data baru langsung muncul di dropdown
+
+    st.divider()
 
 
 st.title("CER Simulation Data Generator")
@@ -85,16 +264,32 @@ with col_dp:
     with col_location:
         list_lokasi = loader.get_list_lokasi()
         if not list_lokasi:
-            st.error("Database empty! Run script 'setup_database_v6.py first!")
+            st.error("Database empty! Run script 'setup_database_v6.py' first!")
             st.stop()
             
         st.info("🌍 Location")
-        l1 , l2 = st.columns(2)
-
-        selected_loc = l1.selectbox("1. Choose Region", list_lokasi, key="loc_region")
         
-        list_titik = loader.get_list_titik(selected_loc)
-        selected_point = l2.selectbox("2. Choose Point", list_titik, key="loc_point")
+        use_rand_location = st.toggle("Randomize / Fixed Location", value=False, key="chk_loc")
+        
+        selected_loc = None
+        selected_point = None
+
+        if not use_rand_location:
+            selected_loc = random.choice(list_lokasi)
+            
+            list_titik_random = loader.get_list_titik(selected_loc)
+            
+            if list_titik_random:
+                selected_point = random.choice(list_titik_random)
+            else:
+                selected_point = None
+                
+        else:
+            l1, l2 = st.columns(2)
+            selected_loc = l1.selectbox("1. Choose Region", list_lokasi, key="loc_region")
+            
+            list_titik = loader.get_list_titik(selected_loc)
+            selected_point = l2.selectbox("2. Choose Point", list_titik, key="loc_point")
         
         available_years = loader.get_available_years(selected_loc, selected_point)
         
@@ -102,10 +297,26 @@ with col_dp:
         if available_years:
             min_year, max_year = min(available_years), max(available_years)
             y1, y2 = st.columns(2)
-            start_y = y1.selectbox("Start Date", available_years, index=0, key="date_start")
             
+            # --- FIX: Start Date ---
+            start_kwargs = {}
+            if "date_start" not in st.session_state:
+                start_kwargs["index"] = 0 # Gunakan default index 0 hanya jika tidak ada di memori
+                
+            start_y = y1.selectbox("Start Date", available_years, key="date_start", **start_kwargs)
+            
+            # --- FIX: End Date ---
             valid_end_years = [y for y in available_years if y >= start_y]
-            end_y = y2.selectbox("End Date", valid_end_years, index=len(valid_end_years)-1, key="date_end")
+            end_kwargs = {}
+            
+            if "date_end" not in st.session_state:
+                end_kwargs["index"] = len(valid_end_years) - 1
+            elif st.session_state["date_end"] not in valid_end_years:
+                # Pengaman: Jika data tahun akhir di memori ternyata lebih kecil dari tahun awal
+                st.session_state["date_end"] = valid_end_years[-1]
+                
+            end_y = y2.selectbox("End Date", valid_end_years, key="date_end", **end_kwargs)
+            
         else:
             st.warning("There is no data on this point!")
             st.stop()

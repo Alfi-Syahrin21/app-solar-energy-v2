@@ -4,6 +4,7 @@ import numpy as np
 import time as tm
 import random
 import calendar
+import math
 
 from datetime import time, datetime
 from modules import loader, calculator
@@ -350,7 +351,7 @@ if btn_run:
         final_p_bat = p_bat_fix
 
     # power Charger/Discharge battery
-    auto_charge_power = round(final_p_bat * 0.4, 0)
+    auto_charge_power = math.ceil(final_p_bat * 0.4)
 
     # --- KALKULASI BEBAN ---
     if not use_rand_load:

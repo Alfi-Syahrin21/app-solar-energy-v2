@@ -173,16 +173,22 @@ if st.session_state['role'] == 'admin':
                 st.stop()
 
             st.info("🏠 Load Profile")
-            use_rand_load = st.toggle("Randomize / Fixed Load Profile", key="chk_load")
+            use_rand_load = st.toggle("Fixed / Random Load Profile", key="chk_load")
             selected_load_file = None 
             
-            if use_rand_load:
+            if not use_rand_load:
                 list_load_files = loader.get_list_load_profiles()
                 if list_load_files:
                     selected_load_file = st.selectbox("Select Profile Source", list_load_files, key="sel_load_file")
                 else:
-                    st.error("No CSV files found!")
+                    st.error("No Parquet/CSV files found!")
                     st.stop()
+            else:
+                st.selectbox(
+                    "Randomize Category", 
+                    options=["All", "Small", "Medium", "Large"], 
+                    key="sel_load_category"
+                )
 
         with col_tariff:
             st.info("⚙️ VPP Setting")
@@ -354,14 +360,26 @@ if btn_run:
     auto_charge_power = math.ceil(final_p_bat * 0.4)
 
     # --- KALKULASI BEBAN ---
-    if not use_rand_load:
+    if use_rand_load: 
         all_files = loader.get_list_load_profiles()
-        if all_files:
-            final_load_file = random.choice(all_files)
+        
+        load_category = st.session_state.get('sel_load_category', 'All')
+
+        if load_category == "Small":
+            filtered_files = [f for f in all_files if f.startswith("SML")]
+        elif load_category == "Medium":
+            filtered_files = [f for f in all_files if f.startswith("MDM")]
+        elif load_category == "Large":
+            filtered_files = [f for f in all_files if f.startswith("LRG")]
         else:
-            st.error("❌ No CSV files found in dataset/load_profile!")
+            filtered_files = all_files 
+
+        if filtered_files:
+            final_load_file = random.choice(filtered_files)
+        else:
+            st.error(f"❌ No files found for category: {load_category}!")
             st.stop()
-    else:
+    else: 
         final_load_file = selected_load_file
 
     with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):

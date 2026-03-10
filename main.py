@@ -408,7 +408,15 @@ if btn_run:
             't_offpeak_start': st.session_state.get('t_o_start', time(22,0)),
             't_offpeak_end': st.session_state.get('t_o_end', time(6,0)),
             't_peak_start': st.session_state.get('t_p_start', time(17,0)),
-            't_peak_end': st.session_state.get('t_p_end', time(20,0))
+            't_peak_end': st.session_state.get('t_p_end', time(20,0)),
+            't_shoulder_start': st.session_state.get('t_s_start', time(14,0)),
+            't_shoulder_end': st.session_state.get('t_s_end', time(17,0)),
+            'is_tou': use_ToU,
+            'export_price': exp_price,
+            'import_flat': p_flat,
+            'peak_price': p_peak,
+            'offpeak_price': p_offpeak,
+            'shoulder_price': p_shoulder
         }
         
         with st.spinner("Calculate Energy Flow..."):
@@ -529,9 +537,12 @@ if st.session_state['hasil_simulasi'] is not None:
         'solar_output_kw', 
         'load_profile',
         'price_profile',       
-        'battery_soc_pct',     
+        'battery_soc_pct',
+        'battery_soc_kwh',     
         'battery_power_ac_kw',
         'grid_net_kw',
+        'tariff_import_AUD',
+        'tariff_export_AUD'
     ]
     final_cols = [c for c in output_columns if c in df_export.columns]
     df_export = df_export[final_cols]

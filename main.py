@@ -173,10 +173,10 @@ if st.session_state['role'] == 'admin':
                 st.stop()
 
             st.info("🏠 Load Profile")
-            use_rand_load = st.toggle("Fixed / Random Load Profile", key="chk_load")
+            use_rand_load = st.toggle("Randomize / Fixed Load Profile", key="chk_load")
             selected_load_file = None 
             
-            if not use_rand_load:
+            if use_rand_load:
                 list_load_files = loader.get_list_load_profiles()
                 if list_load_files:
                     selected_load_file = st.selectbox("Select Profile Source", list_load_files, key="sel_load_file")
@@ -361,6 +361,8 @@ if btn_run:
 
     # --- KALKULASI BEBAN ---
     if use_rand_load: 
+        final_load_file = selected_load_file
+    else: 
         all_files = loader.get_list_load_profiles()
         
         load_category = st.session_state.get('sel_load_category', 'All')
@@ -379,8 +381,6 @@ if btn_run:
         else:
             st.error(f"❌ No files found for category: {load_category}!")
             st.stop()
-    else: 
-        final_load_file = selected_load_file
 
     with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):
         df_input = loader.load_and_merge_data(

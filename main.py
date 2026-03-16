@@ -11,6 +11,7 @@ from modules import loader, calculator
 from modules import tariff_utils as t_utils
 from modules import visualizer
 from modules import config as cfg 
+from modules import student_log as s_log
 
 st.set_page_config(page_title="CER Simulation Data Generator", layout="wide")
 
@@ -261,6 +262,11 @@ if st.session_state['role'] == 'admin':
 else :
     active_cfg = st.session_state.get('active_config', 'Default')
     st.info(f"👋 **Welcome!**  \n\nClick the button below to generate your dataset.")
+
+    st.markdown("Input Your Student ID")
+    
+    student_nim = st.text_input("Student ID", placeholder="eg: z5593968").strip()
+    st.session_state['current_nim'] = student_nim
             
 
 st.markdown("---")
@@ -268,6 +274,9 @@ btn_run = st.button("Generate Data", type="primary", use_container_width=True)
 
 if btn_run:
     if st.session_state['role'] == 'student':
+        if not st.session_state.get('current_nim'):
+            st.warning("⚠️ Please Input Your Student ID First!")
+            st.stop()
         df_hist = cfg.load_config_history()
         if not df_hist.empty:
             active_cfg = st.session_state.get('active_config')
@@ -276,6 +285,14 @@ if btn_run:
                 cfg.apply_row_to_session(matched.iloc[0])
             else:
                 cfg.apply_row_to_session(df_hist.iloc[0])
+        
+        seed_val = s_log.generate_seed_from_nim(st.session_state['current_nim'])
+        random.seed(seed_val)
+        np.random.seed(seed_val)
+    
+    else:
+        random.seed()
+        np.random.seed()
 
 
     use_rand_location = st.session_state.get('chk_loc', False)
@@ -463,6 +480,14 @@ if btn_run:
             'load_source': final_load_file 
         }
         
+        if st.session_state['role'] == 'student':
+            active_cfg_name = st.session_state.get('active_config', 'Default')
+            s_log.save_log_to_sheets(
+                st.session_state['current_nim'], 
+                active_cfg_name, 
+                st.session_state['used_params']
+            )
+
         st.success(f"Data Has Been Generated!")
     else:
         st.error("Failed to Generate the Data")

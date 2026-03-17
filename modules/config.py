@@ -45,7 +45,7 @@ def get_gsheets_connection():
 def load_config_history():
     try:
         conn = get_gsheets_connection()
-        df_history = conn.read(worksheet=TAB_CONFIG, ttl=300) 
+        df_history = conn.read(worksheet=TAB_CONFIG, ttl=30) 
         if df_history is None or df_history.empty:
             return pd.DataFrame()
         if 'Config_Name' not in df_history.columns:

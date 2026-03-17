@@ -11,11 +11,12 @@ def get_gsheets_connection():
     return st.connection("gsheets", type=GSheetsConnection)
 
 def generate_seed_from_nim(nim):
-
+    """Mengubah teks NIM menjadi angka integer yang 100% konsisten untuk seed randomizer."""
     nim_clean = str(nim).strip().upper()
     return zlib.crc32(nim_clean.encode('utf-8'))
 
 def save_log_to_sheets(nim, config_name, used_params_dict):
+    """Menyimpan riwayat generate siswa ke database (Metadata JSON)"""
     try:
         conn = get_gsheets_connection()
         df_existing = conn.read(worksheet=TAB_LOGS, ttl=0)
@@ -38,3 +39,14 @@ def save_log_to_sheets(nim, config_name, used_params_dict):
     except Exception as e:
         st.error(f"⚠️ Failed To Save Student Log: {e}")
         return False
+
+def get_student_logs():
+    """Mengambil riwayat log mahasiswa dari Google Sheets"""
+    try:
+        conn = get_gsheets_connection()
+        df = conn.read(worksheet=TAB_LOGS, ttl=0)
+        df = df.dropna(subset=['NIM', 'Timestamp'])
+        return df
+    except Exception as e:
+        st.error(f"⚠️ Gagal mengambil data log: {e}")
+        return pd.DataFrame()

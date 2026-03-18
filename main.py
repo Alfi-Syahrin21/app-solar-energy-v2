@@ -278,7 +278,7 @@ if st.session_state['role'] == 'admin':
                 st.info("There is no Data Available.")
                 return 
                 
-            st.markdown("### 📋 Generate Student Tracker")
+            st.markdown("### 📋 Student Generate Tracker")
             
             df_logs = df_logs.sort_values(by="Timestamp", ascending=False).reset_index(drop=True)
             df_logs.index = df_logs.index + 1
@@ -421,7 +421,7 @@ if st.session_state['role'] == 'admin':
                     except Exception as e:
                         st.error(f"Failed To Process Data: {e}")
             else:
-                st.info("Select One of the Rows to Regenerate the Data.")
+                st.info("Select one of the rows to regenerate the Data.")
                 
             if st.session_state.get('regen_csv_data') is not None:
                 st.success(f"Data Has Been Regenerated!")
@@ -685,50 +685,52 @@ if st.session_state['hasil_simulasi'] is not None:
         
         with st.container(border=True):
             st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}`")
-            st.divider()
             
-            c_sys1, c_sys2, c_sys3 = st.columns(3)
-            
-            with c_sys1:
-                st.markdown("#### ☀️ Solar PV")
-                st.markdown(f"""
-                - Capacity: **{used_p['solar']} kWp**
-                - PR: **{used_p['solar_pr']}**
-                - Temp Coeff: **{used_p['solar_temp']}**
-                """)
+            if st.session_state.get('role', 'student') == 'admin':
+                st.divider()
                 
-            with c_sys2:
-                st.markdown("#### 🔋 Battery Storage")
-                st.markdown(f"""
-                - Capacity: **{used_p['bat']} kWh**
-                - Power: **-{used_p['bat_charge_kw']} / +{used_p['bat_discharge_kw']} kW**
-                - Efficiency: **{int(used_p['bat_eff']*100)}%**
-                """)
+                c_sys1, c_sys2, c_sys3 = st.columns(3)
                 
-            with c_sys3:
-                st.markdown("#### ⚡ Control Logic")
-                st.markdown(f"""
-                - VPP Threshold: **{used_p['vpp_thresh']} AUD**
-                - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
-                - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
-                """)
-
-        with st.expander("💲 View Applied Tariff Details", expanded=False):
-            tc1, tc2 = st.columns(2)
-            with tc1:
-                st.markdown(f"**Export Tariff:**")
-                st.markdown(f"⚡ Flat Rate: **{t_data['export_price']} AUD/kWh**")
-            with tc2:
-                st.markdown(f"**Import Tariff:**")
-                if t_data['is_tou']:
-                    st.markdown("🕒 **Time-of-Use (ToU) Profile:**")
+                with c_sys1:
+                    st.markdown("#### ☀️ Solar PV")
                     st.markdown(f"""
-                    - **Peak:** {t_data['peak_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['peak_start']} - {t_data['peak_end']})*
-                    - **Shoulder:** {t_data['shoulder_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['shoulder_start']} - {t_data['shoulder_end']})*
-                    - **Off-Peak:** {t_data['offpeak_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['offpeak_start']} - {t_data['offpeak_end']})*
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"🟦 Flat Rate: **{t_data['import_flat']} AUD/kWh**")
+                    - Capacity: **{used_p['solar']} kWp**
+                    - PR: **{used_p['solar_pr']}**
+                    - Temp Coeff: **{used_p['solar_temp']}**
+                    """)
+                    
+                with c_sys2:
+                    st.markdown("#### 🔋 Battery Storage")
+                    st.markdown(f"""
+                    - Capacity: **{used_p['bat']} kWh**
+                    - Power: **-{used_p['bat_charge_kw']} / +{used_p['bat_discharge_kw']} kW**
+                    - Efficiency: **{int(used_p['bat_eff']*100)}%**
+                    """)
+                    
+                with c_sys3:
+                    st.markdown("#### ⚡ Control Logic")
+                    st.markdown(f"""
+                    - VPP Threshold: **{used_p['vpp_thresh']} AUD**
+                    - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
+                    - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
+                    """)
+        if st.session_state.get('role', 'student') == 'admin':
+            with st.expander("💲 View Applied Tariff Details", expanded=False):
+                tc1, tc2 = st.columns(2)
+                with tc1:
+                    st.markdown(f"**Export Tariff:**")
+                    st.markdown(f"⚡ Flat Rate: **{t_data['export_price']} AUD/kWh**")
+                with tc2:
+                    st.markdown(f"**Import Tariff:**")
+                    if t_data['is_tou']:
+                        st.markdown("🕒 **Time-of-Use (ToU) Profile:**")
+                        st.markdown(f"""
+                        - **Peak:** {t_data['peak_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['peak_start']} - {t_data['peak_end']})*
+                        - **Shoulder:** {t_data['shoulder_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['shoulder_start']} - {t_data['shoulder_end']})*
+                        - **Off-Peak:** {t_data['offpeak_price']} AUD <br> &nbsp;&nbsp;&nbsp; *({t_data['offpeak_start']} - {t_data['offpeak_end']})*
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"🟦 Flat Rate: **{t_data['import_flat']} AUD/kWh**")
 
         st.markdown("### 💾 Export Data")
         
@@ -771,7 +773,7 @@ if st.session_state['hasil_simulasi'] is not None:
 
         if st.session_state.get('role', 'student') == 'admin':
             st.divider()
-            st.subheader("📊 Detailed Analysis (Admin Only)")
+            st.subheader("📊 Detailed Analysis")
             
             df_result['year']  = df_result['timestamp'].dt.year
             df_result['month'] = df_result['timestamp'].dt.month

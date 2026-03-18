@@ -452,7 +452,7 @@ else :
 if btn_run:
     if st.session_state['role'] == 'student':
         if not st.session_state.get('current_nim'):
-            st.warning("⚠️ Harap masukkan NIM Anda terlebih dahulu!")
+            st.warning("⚠️ Please Input Your Student ID!")
             st.stop()
 
         df_hist = cfg.load_config_history()

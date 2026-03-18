@@ -252,10 +252,10 @@ if st.session_state['role'] == 'admin':
                 use_rand_bat = st.toggle("Randomize / Fixed Size", key="chk_bat")
                 if not use_rand_bat:
                     bc1, bc2 = st.columns(2)
-                    p_bat_min = bc1.number_input("Min (kWh)", 0.0, 1000.0, step=1.0, key="bat_min")
-                    p_bat_max = bc2.number_input("Max (kWh)", 0.0, 1000.0, step=1.0, key="bat_max")
+                    p_bat_min = bc1.number_input("Min (kWh)", 0.0, 1000.0, step=0.5, key="bat_min")
+                    p_bat_max = bc2.number_input("Max (kWh)", 0.0, 1000.0, step=0.5, key="bat_max")
                 else:
-                    p_bat_fix = st.number_input("Capacity (kWh)", 1.0, 200.0, step=1.0, key="bat_fix")
+                    p_bat_fix = st.number_input("Capacity (kWh)", 1.0, 200.0, step=0.5, key="bat_fix")
                 
                 p_eff = st.number_input("Round-Trip Efficiency (%)", 50, 100, key="bat_eff") / 100
                 p_soc = st.slider("Initial SoC (%)", 0, 100, key="bat_soc_init") / 100
@@ -548,7 +548,9 @@ if btn_run:
 
         final_bat_min = p_bat_min + (start_seg * bat_segment_width)
         final_bat_max = p_bat_min + ((end_seg + 1) * bat_segment_width)
-        final_p_bat = round(random.uniform(final_bat_min, final_bat_max), 2)
+
+        raw_bat = random.uniform(final_bat_min, final_bat_max)
+        final_p_bat = round(raw_bat * 2) / 2
     else:
         final_p_bat = p_bat_fix
 

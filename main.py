@@ -13,6 +13,7 @@ from modules import tariff_utils as t_utils
 from modules import visualizer
 from modules import config as cfg 
 from modules import student_log as s_log
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 st.set_page_config(page_title="CER Simulation Data Generator", layout="wide")
 
@@ -89,7 +90,7 @@ if st.session_state['role'] == 'admin':
             history_options = df_history['Timestamp'].astype(str) + " | " + df_history['Config_Name'].astype(str)
             selected_history_str = st.selectbox("Select Config:", history_options.tolist())
             
-            if st.button("Apply Config", use_container_width=True):
+            if st.button("Apply Config", width="stretch"):
                 selected_row = df_history[history_options == selected_history_str].iloc[0]
                 cfg.apply_row_to_session(selected_row)
                 st.session_state['active_config'] = selected_row['Config_Name']
@@ -103,7 +104,7 @@ if st.session_state['role'] == 'admin':
         st.subheader("💾 Save Current Config")
         new_config_name = st.text_input("Config Name (ex: Exam Config 1)")
         
-        if st.button("Save Config", type="primary", use_container_width=True):
+        if st.button("Save Config", type="primary", width="stretch"):
             if new_config_name.strip() == "":
                 st.warning("⚠️ Empty Config Name")
             else:
@@ -263,20 +264,33 @@ if st.session_state['role'] == 'admin':
                 p_max_soc = range_soc[1] / 100   
 
         st.markdown("---")
-        btn_run = st.button("Generate Data", type="primary", use_container_width=True, key="btn_admin")
+        btn_run = st.button("Generate Data", type="primary", width="stretch", key="btn_admin")
         res_container = st.container()
 
     with tab_tracker:
-        df_logs = s_log.get_student_logs()
         
-        if df_logs.empty:
-            st.info("There is No Data Available.")
-        else:
+        # Membungkus UI Tracker ke dalam Fragment agar tidak refresh 1 halaman penuh
+        @st.fragment
+        def tracker_ui():
+            df_logs = s_log.get_student_logs()
+            
+            if df_logs.empty:
+                st.info("There is no Data Available.")
+                return 
+                
+            st.markdown("### 📋 Generate Student Tracker")
+            
             df_logs = df_logs.sort_values(by="Timestamp", ascending=False).reset_index(drop=True)
             df_logs.index = df_logs.index + 1
             df_logs.reset_index(inplace=True)
-            df_logs.rename(columns={'index': 'No'}, inplace=True)
             df_logs['NIM'] = df_logs['NIM'].astype(str).str.replace(r'\.0$', '', regex=True)
+            
+            df_logs.rename(columns={
+                'index': 'No', 
+                'Timestamp': 'Waktu Generate',
+                'NIM': 'Student ID',
+                'Config_Name': 'Parameter Used'
+            }, inplace=True)
             
             def extract_summary(json_str):
                 try:
@@ -285,120 +299,140 @@ if st.session_state['role'] == 'admin':
                 except:
                     return "Invalid Data"
                     
-            df_logs['Result_Parameter'] = df_logs['Parameter_Snapshot'].apply(extract_summary)
+            df_logs['Result Parameter'] = df_logs['Parameter_Snapshot'].apply(extract_summary)
 
-            df_logs = df_logs.rename(columns={
-                'NIM': 'Unique ID',
-                'Config_Name': 'Config Used',
-                'Result_Parameter': 'Result Parameter'
-            })
+            gb = GridOptionsBuilder.from_dataframe(df_logs)
+            
+            gb.configure_column("Parameter_Snapshot", hide=True)
+            
+            gb.configure_default_column(resizable=True, filterable=True, sortable=True)
+            
+            gb.configure_column("No", minWidth=60, maxWidth=80)
+            gb.configure_column("Waktu Generate", minWidth=160, flex=1)
+            gb.configure_column("Student ID", minWidth=130, flex=1)
+            gb.configure_column("Parameter Used", minWidth=150, flex=1)
 
-            st.dataframe(
-                df_logs[['No', 'Timestamp', 'Unique ID', 'Config Used', 'Result Parameter']], 
-                use_container_width=True, 
-                hide_index=True,
-                height=300,
-                column_config={
-                    "No": st.column_config.NumberColumn(width="small"),
-                    "Waktu Generate": st.column_config.TextColumn(width="medium"),
-                    "Student ID": st.column_config.TextColumn(width="medium"),
-                    "Parameter Used (Config)": st.column_config.TextColumn(width="medium"),
-                    "Result Parameter": st.column_config.TextColumn(width="large")
-                }
+            gb.configure_column("Result Parameter", minWidth=300, flex=2, wrapText=True, autoHeight=True)
+            
+            gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
+            gb.configure_selection('single', use_checkbox=True)
+            
+            gridOptions = gb.build()
+            
+            grid_response = AgGrid(
+                df_logs,
+                gridOptions=gridOptions,
+                update_mode=GridUpdateMode.SELECTION_CHANGED,
+                fit_columns_on_grid_load=True,
+                theme='streamlit', 
+                height=400
             )
             
             st.divider()
-            st.markdown("### Regenerate Dataset")
             
-            log_options = "No. " + df_logs['No'].astype(str) + " | NIM: " + df_logs['Unique ID'].astype(str)
-            selected_log_str = st.selectbox("Choose Dataset That Want Regenerate", log_options.tolist())
+            selected_rows = grid_response['selected_rows']
             
-            if st.button("Regenerate Dataset", type="primary", use_container_width=True, key="btn_tracker"):
-                selected_row = df_logs[log_options == selected_log_str].iloc[0]
-                nim_target = selected_row['Unique ID']
+            if selected_rows is not None and len(selected_rows) > 0:
                 
-                try:
-                    saved_params = json.loads(selected_row['Parameter_Snapshot'])
-                    with st.spinner(f"Re-generating data with Unique ID {nim_target}..."):
-                        
-                        seed_val = s_log.generate_seed_from_nim(nim_target)
-                        random.seed(seed_val)
-                        np.random.seed(seed_val)
-                        
-                        
-                        loc_split = saved_params['location'].split(" - ") 
-                        reg = loc_split[0].strip()
-                        pt = " - ".join(loc_split[1:]).strip() 
-                        
-                        yr_split = saved_params['period'].split(" to ")
-                        sy = int(yr_split[0])
-                        ey = int(yr_split[1])
-                        
-                        df_input_regen = loader.load_and_merge_data(
-                            reg, pt, sy, ey, fixed_load_file=saved_params['load_source']
-                        )
-                        
-                        if df_input_regen is None:
-                            st.error(f"❌ Dataset gagal dimuat! Periksa folder 'dataset/{reg}/{pt}'")
-                        else:
-                            sim_params = {
-                                'solar_capacity_kw': saved_params['solar'], 
-                                'temp_coeff': saved_params['solar_temp'],
-                                'pr': saved_params['solar_pr'],
-                                'battery_capacity_kwh': saved_params['bat'], 
-                                'battery_efficiency': saved_params['bat_eff'],
-                                'battery_initial_soc': saved_params['bat_soc_init'],
-                                'max_charge_kw': saved_params['bat_charge_kw'],
-                                'max_discharge_kw': saved_params['bat_discharge_kw'],
-                                'soc_min_pct': saved_params['soc_min'],
-                                'soc_max_pct': saved_params['soc_max'],
-                                'dispatch_price_threshold': saved_params['vpp_thresh'], 
-                                'is_tou': saved_params['tariff_data']['is_tou'],
-                                'export_price': saved_params['tariff_data']['export_price'],
-                            }
+                if isinstance(selected_rows, pd.DataFrame):
+                    sel_dict = selected_rows.iloc[0].to_dict()
+                else:
+                    sel_dict = selected_rows[0]
+                    
+                nim_target = sel_dict['Student ID']
+                st.info(f"📌 Selected Data — Student ID: **{nim_target}** | Parameter Used: **{sel_dict['Parameter Used']}**")
+                
+                if st.button("Run Regenerate", width="stretch", type="primary", key="btn_regen_tracker"):
+                    try:
+                        saved_params = json.loads(sel_dict['Parameter_Snapshot'])
+                        with st.spinner(f"Re-generating data for Student ID {nim_target}..."):
                             
-                            t_data = saved_params['tariff_data']
-                            if t_data['is_tou']:
-                                from datetime import datetime as dt
-                                sim_params.update({
-                                    'peak_price': t_data['peak_price'],
-                                    't_peak_start': dt.strptime(t_data['peak_start'], "%H:%M").time(),
-                                    't_peak_end': dt.strptime(t_data['peak_end'], "%H:%M").time(),
-                                    'offpeak_price': t_data['offpeak_price'],
-                                    't_offpeak_start': dt.strptime(t_data['offpeak_start'], "%H:%M").time(),
-                                    't_offpeak_end': dt.strptime(t_data['offpeak_end'], "%H:%M").time(),
-                                    'shoulder_price': t_data['shoulder_price'],
-                                    't_shoulder_start': dt.strptime(t_data['shoulder_start'], "%H:%M").time(),
-                                    't_shoulder_end': dt.strptime(t_data['shoulder_end'], "%H:%M").time(),
-                                })
-                            else:
-                                sim_params['import_flat'] = t_data['import_flat']
-                                
-                            df_result_regen = calculator.run_simulation(df_input_regen, sim_params)
+                            # --- SET SEED ULANG ---
+                            seed_val = s_log.generate_seed_from_nim(nim_target)
+                            random.seed(seed_val)
+                            np.random.seed(seed_val)
                             
-                            df_export = df_result_regen.round(2).rename(columns={
-                                'irradiance': 'irradiance_Wh/m^2',
-                                'temperature': 'temperature_C',
-                                'load_profile': 'load_kW',
-                                'price_profile': 'price_AUD',
-                                'battery_soc_pct': 'battery_soc_%'
-                            })
+                            # --- SAFE SPLIT LOCATION ---
+                            loc_split = saved_params['location'].split(" - ") 
+                            reg = loc_split[0].strip()
+                            pt = " - ".join(loc_split[1:]).strip() 
                             
-                            csv = df_export.to_csv(index=False).encode('utf-8')
+                            yr_split = saved_params['period'].split(" to ")
+                            sy = int(yr_split[0])
+                            ey = int(yr_split[1])
                             
-                            st.success(f"Data Has Been Re-Generated!")
-                            
-                            st.markdown("### 💾 Export Data")
-                            st.download_button(
-                                label=f"Download Dataset (CSV) Unique ID: {nim_target}",
-                                data=csv,
-                                file_name=f"Data_{nim_target}_{reg}_{pt}.csv",
-                                mime="text/csv",
-                                key="download-csv-tracker"
+                            df_input_regen = loader.load_and_merge_data(
+                                reg, pt, sy, ey, fixed_load_file=saved_params['load_source']
                             )
                             
-                except Exception as e:
-                    st.error(f"Gagal memproses data: {e}")
+                            if df_input_regen is None:
+                                st.error(f"❌ Dataset Fail to Load! Check Folder 'dataset/{reg}/{pt}'")
+                            else:
+                                sim_params = {
+                                    'solar_capacity_kw': saved_params['solar'], 
+                                    'temp_coeff': saved_params['solar_temp'],
+                                    'pr': saved_params['solar_pr'],
+                                    'battery_capacity_kwh': saved_params['bat'], 
+                                    'battery_efficiency': saved_params['bat_eff'],
+                                    'battery_initial_soc': saved_params['bat_soc_init'],
+                                    'max_charge_kw': saved_params['bat_charge_kw'],
+                                    'max_discharge_kw': saved_params['bat_discharge_kw'],
+                                    'soc_min_pct': saved_params['soc_min'],
+                                    'soc_max_pct': saved_params['soc_max'],
+                                    'dispatch_price_threshold': saved_params['vpp_thresh'], 
+                                    'is_tou': saved_params['tariff_data']['is_tou'],
+                                    'export_price': saved_params['tariff_data']['export_price'],
+                                }
+                                
+                                t_data = saved_params['tariff_data']
+                                if t_data['is_tou']:
+                                    from datetime import datetime as dt
+                                    sim_params.update({
+                                        'peak_price': t_data['peak_price'],
+                                        't_peak_start': dt.strptime(t_data['peak_start'], "%H:%M").time(),
+                                        't_peak_end': dt.strptime(t_data['peak_end'], "%H:%M").time(),
+                                        'offpeak_price': t_data['offpeak_price'],
+                                        't_offpeak_start': dt.strptime(t_data['offpeak_start'], "%H:%M").time(),
+                                        't_offpeak_end': dt.strptime(t_data['offpeak_end'], "%H:%M").time(),
+                                        'shoulder_price': t_data['shoulder_price'],
+                                        't_shoulder_start': dt.strptime(t_data['shoulder_start'], "%H:%M").time(),
+                                        't_shoulder_end': dt.strptime(t_data['shoulder_end'], "%H:%M").time(),
+                                    })
+                                else:
+                                    sim_params['import_flat'] = t_data['import_flat']
+                                    
+                                df_result_regen = calculator.run_simulation(df_input_regen, sim_params)
+                                
+                                df_export = df_result_regen.round(2).rename(columns={
+                                    'irradiance': 'irradiance_Wh/m^2',
+                                    'temperature': 'temperature_C',
+                                    'load_profile': 'load_kW',
+                                    'price_profile': 'price_AUD',
+                                    'battery_soc_pct': 'battery_soc_%'
+                                })
+                                
+                                st.session_state['regen_csv_data'] = df_export.to_csv(index=False).encode('utf-8')
+                                st.session_state['regen_nim'] = nim_target
+                                st.session_state['regen_reg'] = reg
+                                st.session_state['regen_pt'] = pt
+                                
+                    except Exception as e:
+                        st.error(f"Failed To Process Data: {e}")
+            else:
+                st.info("Select One of the Rows to Regenerate the Data.")
+                
+            if st.session_state.get('regen_csv_data') is not None:
+                st.success(f"Data Has Been Regenerated!")
+                st.markdown("### 💾 Export Data")
+                st.download_button(
+                    label=f"Download Dataset (CSV)",
+                    data=st.session_state['regen_csv_data'],
+                    file_name=f"Data_{st.session_state['regen_nim']}_{st.session_state['regen_reg']}_{st.session_state['regen_pt']}.csv",
+                    mime="text/csv",
+                    key=f"dl_regen_{st.session_state['regen_nim']}" 
+                )
+                
+        tracker_ui()
 
 else :
     
@@ -409,7 +443,7 @@ else :
     st.session_state['current_nim'] = student_nim
 
     st.markdown("---")
-    btn_run = st.button("Generate Data", type="primary", use_container_width=True, key="btn_student")
+    btn_run = st.button("Generate Data", type="primary", width="stretch", key="btn_student")
     res_container = st.container()
 
 
@@ -627,9 +661,11 @@ if btn_run:
                 st.session_state['used_params']
             )
         
-        st.success(f"Data Has Been Generated!")
+        with res_container: 
+            st.success(f"Data Has Been Generated!")
     else:
-        st.error("Failed to Generate the Data")
+        with res_container:
+            st.error("Failed to Generate the Data")
          
 
 if st.session_state['hasil_simulasi'] is not None:

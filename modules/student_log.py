@@ -10,10 +10,16 @@ TAB_LOGS = "Student_Logs"
 def get_gsheets_connection():
     return st.connection("gsheets", type=GSheetsConnection)
 
-def generate_seed_from_nim(nim):
-    """Mengubah teks NIM menjadi angka integer yang 100% konsisten untuk seed randomizer."""
+def generate_seed(nim, config_name=""):
+    """
+    Menggabungkan NIM dan Nama Config agar seed-nya unik 
+    untuk setiap tugas, meskipun NIM-nya sama.
+    """
     nim_clean = str(nim).strip().upper()
-    return zlib.crc32(nim_clean.encode('utf-8'))
+    config_clean = str(config_name).strip()
+    
+    gabungan = f"{nim_clean}_{config_clean}"
+    return zlib.crc32(gabungan.encode('utf-8'))
 
 def save_log_to_sheets(nim, config_name, used_params_dict):
     """Menyimpan riwayat generate siswa ke database (Metadata JSON)"""

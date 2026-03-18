@@ -348,7 +348,9 @@ if st.session_state['role'] == 'admin':
                         with st.spinner(f"Re-generating data for Student ID {nim_target}..."):
                             
                             # --- SET SEED ULANG ---
-                            seed_val = s_log.generate_seed_from_nim(nim_target)
+                            config_used = sel_dict['Parameter Used'] 
+                            seed_val = s_log.generate_seed(nim_target, config_used)
+                            
                             random.seed(seed_val)
                             np.random.seed(seed_val)
                             
@@ -462,7 +464,9 @@ if btn_run:
             else:
                 cfg.apply_row_to_session(df_hist.iloc[0])
         
-        seed_val = s_log.generate_seed_from_nim(st.session_state['current_nim'])
+        active_cfg_name = st.session_state.get('active_config', 'Default')
+        seed_val = s_log.generate_seed(st.session_state['current_nim'], active_cfg_name)
+        
         random.seed(seed_val)
         np.random.seed(seed_val)
     else:

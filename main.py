@@ -307,12 +307,12 @@ if st.session_state['role'] == 'admin':
             
             gb.configure_default_column(resizable=True, filterable=True, sortable=True)
             
-            gb.configure_column("No", minWidth=60, maxWidth=80)
-            gb.configure_column("Waktu Generate", minWidth=160, flex=1)
-            gb.configure_column("Student ID", minWidth=130, flex=1)
-            gb.configure_column("Parameter Used", minWidth=150, flex=1)
-
-            gb.configure_column("Result Parameter", minWidth=300, flex=2, wrapText=True, autoHeight=True)
+            gb.configure_column("No", minWidth=60, maxWidth=80, filter='agNumberColumnFilter')
+            
+            gb.configure_column("Waktu Generate", minWidth=160, flex=1, filter='agTextColumnFilter')
+            gb.configure_column("Student ID", minWidth=130, flex=1, filter='agTextColumnFilter')
+            gb.configure_column("Parameter Used", minWidth=150, flex=1, filter='agTextColumnFilter')
+            gb.configure_column("Result Parameter", minWidth=300, flex=2, wrapText=True, autoHeight=True, filter='agTextColumnFilter')
             
             gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=10)
             gb.configure_selection('single', use_checkbox=True)

@@ -185,16 +185,33 @@ if st.session_state['role'] == 'admin':
                 if use_rand_load: 
                     list_load_files = loader.get_list_load_profiles()
                     if list_load_files:
-                        selected_load_file = st.selectbox("Select Profile Source", list_load_files, key="sel_load_file")
+                        saved_file = st.session_state.get('sel_load_file', list_load_files[0])
+                        idx = list_load_files.index(saved_file) if saved_file in list_load_files else 0
+                        
+                        ui_load_file = st.selectbox(
+                            "Select Profile Source", 
+                            list_load_files, 
+                            index=idx,
+                            key="ui_sel_load_file" 
+                        )
+                        st.session_state['sel_load_file'] = ui_load_file 
+                        selected_load_file = ui_load_file
+                        
+                        saved_mult = st.session_state.get('load_mult', 15.0)
+                        
+                        ui_mult = st.slider(
+                            "Load Multiplier", 
+                            min_value=8.0, 
+                            max_value=32.0, 
+                            value=float(saved_mult), 
+                            step=0.1, 
+                            key="ui_load_mult" 
+                        )
+                        st.session_state['load_mult'] = ui_mult
                     else:
                         st.error("No Parquet/CSV files found!")
                         st.stop()
-                else: 
-                    st.selectbox(
-                        "Randomize Category", 
-                        options=["All", "Small", "Medium", "Large"], 
-                        key="sel_load_category"
-                    )
+                
 
             with col_tariff:
                 st.info("⚙️ VPP Setting")
@@ -370,6 +387,9 @@ if st.session_state['role'] == 'admin':
                             if df_input_regen is None:
                                 st.error(f"❌ Dataset Fail to Load! Check Folder 'dataset/{reg}/{pt}'")
                             else:
+                                col_load_regen = 'load_profile' if 'load_profile' in df_input_regen.columns else 'beban_rumah_kw'
+                                df_input_regen[col_load_regen] = df_input_regen[col_load_regen] * saved_params['load_multiplier']
+
                                 sim_params = {
                                     'solar_capacity_kw': saved_params['solar'], 
                                     'temp_coeff': saved_params['solar_temp'],
@@ -418,7 +438,7 @@ if st.session_state['role'] == 'admin':
                                 st.session_state['regen_reg'] = reg
                                 st.session_state['regen_pt'] = pt
                                 st.session_state['regen_params'] = saved_params
-                                
+
                     except Exception as e:
                         st.error(f"Failed To Process Data: {e}")
             else:
@@ -434,7 +454,7 @@ if st.session_state['role'] == 'admin':
                 st.markdown("### 📋 Generated Simulation Info")
                 
                 with st.container(border=True):
-                    st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}`")
+                    st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
                     st.divider()
                     
                     c_sys1, c_sys2, c_sys3 = st.columns(3)
@@ -571,12 +591,45 @@ if btn_run:
         list_titik_random = loader.get_list_titik(selected_loc)
         selected_point = random.choice(list_titik_random) if list_titik_random else None
 
+    # --- KALKULASI BEBAN ---
+    all_files = loader.get_list_load_profiles()
+    
+    if use_rand_load: 
+        final_load_file = selected_load_file
+        final_load_mult = st.session_state.get('load_mult', 15.0)
+    else: 
+        if all_files:
+            final_load_file = random.choice(all_files)
+            final_load_mult = round(random.uniform(8.0, 32.0), 1)
+        else:
+            st.error("❌ No load profile files found!")
+            st.stop()
+
     # --- KALKULASI SOLAR ---
     is_solar_fixed = False 
     if not use_rand_solar:
-        final_p_solar = round(random.uniform(p_solar_min, p_solar_max), 2)
+        segment_solar = 5
+        solar_total_range = p_solar_max - p_solar_min
+        solar_segment_width = solar_total_range / segment_solar
+        
+        if final_load_mult < 16.0:
+            start_seg_solar = 0
+            end_seg_solar = 2
+        elif final_load_mult < 24.0:
+            start_seg_solar = 1
+            end_seg_solar = 3
+        else:
+            start_seg_solar = 2
+            end_seg_solar = 4
+
+        final_solar_min = p_solar_min + (start_seg_solar * solar_segment_width)
+        final_solar_max = p_solar_min + ((end_seg_solar + 1) * solar_segment_width)
+
+        raw_solar = random.uniform(final_solar_min, final_solar_max)
+        
+        final_p_solar = round(raw_solar * 2) / 2
     else:
-        final_p_solar = p_solar_fix
+        final_p_solar = round(p_solar_fix * 2) / 2
         is_solar_fixed = True
 
     # --- KALKULASI BATERAI ---
@@ -611,28 +664,6 @@ if btn_run:
 
     auto_charge_power = math.ceil(final_p_bat * 0.4)
 
-    # --- KALKULASI BEBAN ---
-    if use_rand_load: 
-        final_load_file = selected_load_file
-    else: 
-        all_files = loader.get_list_load_profiles()
-        load_category = st.session_state.get('sel_load_category', 'All')
-
-        if load_category == "Small":
-            filtered_files = [f for f in all_files if f.startswith("SML")]
-        elif load_category == "Medium":
-            filtered_files = [f for f in all_files if f.startswith("MDM")]
-        elif load_category == "Large":
-            filtered_files = [f for f in all_files if f.startswith("LRG")]
-        else:
-            filtered_files = all_files 
-
-        if filtered_files:
-            final_load_file = random.choice(filtered_files)
-        else:
-            st.error(f"❌ No files found for category: {load_category}!")
-            st.stop()
-
     with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 
@@ -644,6 +675,8 @@ if btn_run:
         tm.sleep(0.5) 
     
     if df_input is not None:
+        col_load_name = 'load_profile' if 'load_profile' in df_input.columns else 'beban_rumah_kw'
+        df_input[col_load_name] = df_input[col_load_name] * final_load_mult
         params = {
             'solar_capacity_kw': final_p_solar, 
             'temp_coeff': p_temp,
@@ -711,7 +744,8 @@ if btn_run:
             'tariff_data': tariff_snapshot,
             'location': f"{selected_loc} - {selected_point}",
             'period': f"{start_y} to {end_y}",
-            'load_source': final_load_file 
+            'load_source': final_load_file,
+            'load_multiplier': final_load_mult 
         }
         
         if st.session_state['role'] == 'student':
@@ -741,7 +775,7 @@ if st.session_state['hasil_simulasi'] is not None:
         st.markdown("### 📋 Generated Simulation Info")
         
         with st.container(border=True):
-            st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}`")
+            st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
             
             if st.session_state.get('role', 'student') == 'admin':
                 st.divider()

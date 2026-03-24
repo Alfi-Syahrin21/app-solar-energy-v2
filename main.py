@@ -359,7 +359,7 @@ if st.session_state['role'] == 'admin':
                 nim_target = sel_dict['Student ID']
                 st.info(f"📌 Selected Data — Student ID: **{nim_target}** | Parameter Used: **{sel_dict['Parameter Used']}**")
                 
-                if st.button("Run Regenerate", width="stretch", type="primary", key="btn_regen_tracker"):
+                if st.button("Re-generate Data", width="stretch", type="primary", key="btn_regen_tracker"):
                     try:
                         saved_params = json.loads(sel_dict['Parameter_Snapshot'])
                         with st.spinner(f"Re-generating data for Student ID {nim_target}..."):
@@ -442,10 +442,10 @@ if st.session_state['role'] == 'admin':
                     except Exception as e:
                         st.error(f"Failed To Process Data: {e}")
             else:
-                st.info("Select one of the rows to regenerate the Data.")
+                st.info("Select one of the rows to Re-generate the Data.")
                 
             if st.session_state.get('regen_csv_data') is not None:
-                st.success(f"✅ Data Has Been Regenerated!")
+                st.success(f"✅ Data Has Been Re-generated!")
                 
                 used_p = st.session_state['regen_params']
                 t_data = used_p['tariff_data']

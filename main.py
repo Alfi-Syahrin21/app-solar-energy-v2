@@ -304,7 +304,7 @@ if st.session_state['role'] == 'admin':
             
             df_logs.rename(columns={
                 'index': 'No', 
-                'Timestamp': 'Waktu Generate',
+                'Timestamp': 'Timestamp (UTC)',
                 'NIM': 'Student ID',
                 'Config_Name': 'Parameter Used'
             }, inplace=True)
@@ -326,7 +326,7 @@ if st.session_state['role'] == 'admin':
             
             gb.configure_column("No", minWidth=60, maxWidth=80, filter='agNumberColumnFilter')
             
-            gb.configure_column("Waktu Generate", minWidth=160, flex=1, filter='agTextColumnFilter')
+            gb.configure_column("Timestamp (UTC)", minWidth=160, flex=1, filter='agTextColumnFilter')
             gb.configure_column("Student ID", minWidth=130, flex=1, filter='agTextColumnFilter')
             gb.configure_column("Parameter Used", minWidth=150, flex=1, filter='agTextColumnFilter')
             gb.configure_column("Result Parameter", minWidth=300, flex=2, wrapText=True, autoHeight=True, filter='agTextColumnFilter')

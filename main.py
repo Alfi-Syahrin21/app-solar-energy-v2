@@ -141,16 +141,38 @@ if st.session_state['role'] == 'admin':
                 selected_loc = None
                 selected_point = None
 
-                if use_rand_location: 
+                if use_rand_location:
                     l1, l2 = st.columns(2)
-                    selected_loc = l1.selectbox("1. Choose Region", list_lokasi, key="loc_region")
+                    
+                    saved_region = st.session_state.get('loc_region', list_lokasi[0])
+                    idx_reg = list_lokasi.index(saved_region) if saved_region in list_lokasi else 0
+                    
+                    ui_region = l1.selectbox("1. Choose Region", list_lokasi, index=idx_reg, key="ui_loc_region")
+                    st.session_state['loc_region'] = ui_region
+                    selected_loc = ui_region
+                    
                     list_titik = loader.get_list_titik(selected_loc)
-                    selected_point = l2.selectbox("2. Choose Point", list_titik, key="loc_point")
+                    
+                    list_titik_extended = ["Randomize"] + list_titik 
+                    
+                    saved_point = st.session_state.get('loc_point', list_titik_extended[0])
+                    idx_pt = list_titik_extended.index(saved_point) if saved_point in list_titik_extended else 0
+                    
+                    ui_point = l2.selectbox("2. Choose Point", list_titik_extended, index=idx_pt, key="ui_loc_point")
+                    st.session_state['loc_point'] = ui_point 
+
+                    if ui_point == "Randomize":
+                        selected_point = random.choice(list_titik) if list_titik else None
+                    else:
+                        selected_point = ui_point
+                        
                 else: 
                     selected_loc = random.choice(list_lokasi)
                     list_titik_random = loader.get_list_titik(selected_loc)
                     selected_point = random.choice(list_titik_random) if list_titik_random else None
                 
+
+
                 available_years = loader.get_available_years(selected_loc, selected_point)
                 
                 st.info("🕒 Duration")
@@ -584,7 +606,14 @@ if btn_run:
     # --- KALKULASI LOKASI ---
     if use_rand_location: 
         selected_loc = st.session_state.get('loc_region')
-        selected_point = st.session_state.get('loc_point')
+        raw_point = st.session_state.get('loc_point')
+        
+        if raw_point == "Randomize":
+            list_titik = loader.get_list_titik(selected_loc)
+            selected_point = random.choice(list_titik) if list_titik else None
+        else:
+            selected_point = raw_point
+            
     else: 
         list_lokasi = loader.get_list_lokasi()
         selected_loc = random.choice(list_lokasi)

@@ -177,25 +177,43 @@ if st.session_state['role'] == 'admin':
                 
                 st.info("🕒 Duration")
                 if available_years:
-                    min_year, max_year = min(available_years), max(available_years)
-                    y1, y2 = st.columns(2)
+                    use_rand_dur = st.toggle("Randomize / Fixed Duration", key="chk_dur")
                     
-                    start_kwargs = {}
-                    if "date_start" not in st.session_state:
-                        start_kwargs["index"] = 0 
+                    if use_rand_dur: 
+                        min_year, max_year = min(available_years), max(available_years)
+                        y1, y2 = st.columns(2)
                         
-                    start_y = y1.selectbox("Start Date", available_years, key="date_start", **start_kwargs)
-                    
-                    valid_end_years = [y for y in available_years if y >= start_y]
-                    end_kwargs = {}
-                    
-                    if "date_end" not in st.session_state:
-                        end_kwargs["index"] = len(valid_end_years) - 1
-                    elif st.session_state["date_end"] not in valid_end_years:
-                        st.session_state["date_end"] = valid_end_years[-1]
+                        start_kwargs = {}
+                        if "date_start" not in st.session_state:
+                            start_kwargs["index"] = 0 
+                            
+                        start_y = y1.selectbox("Start Date", available_years, key="date_start", **start_kwargs)
                         
-                    end_y = y2.selectbox("End Date", valid_end_years, key="date_end", **end_kwargs)
-                    
+                        valid_end_years = [y for y in available_years if y >= start_y]
+                        end_kwargs = {}
+                        
+                        if "date_end" not in st.session_state:
+                            end_kwargs["index"] = len(valid_end_years) - 1
+                        elif st.session_state["date_end"] not in valid_end_years:
+                            st.session_state["date_end"] = valid_end_years[-1]
+                            
+                        end_y = y2.selectbox("End Date", valid_end_years, key="date_end", **end_kwargs)
+                        
+                    else: 
+                        total_years = len(available_years)
+                        
+                        saved_rand_dur = st.session_state.get('rand_dur_years', 1)
+                        saved_rand_dur = min(saved_rand_dur, total_years) 
+                        
+                        ui_dur = st.number_input(
+                            f"Duration (Years)", 
+                            min_value=1, 
+                            max_value=total_years, 
+                            value=int(saved_rand_dur), 
+                            key="ui_rand_dur_years"
+                        )
+                        st.session_state['rand_dur_years'] = ui_dur
+                        
                 else:
                     st.warning("There is no data on this point!")
                     st.stop()
@@ -600,8 +618,8 @@ if btn_run:
     p_flat = st.session_state.get('imp_tariff', 0.20)
 
     selected_load_file = st.session_state.get('sel_load_file', None)
-    start_y = st.session_state.get('date_start', 2020)
-    end_y = st.session_state.get('date_end', 2020)
+    # start_y = st.session_state.get('date_start', 2020)
+    # end_y = st.session_state.get('date_end', 2020)
 
     # --- KALKULASI LOKASI ---
     if use_rand_location: 
@@ -619,6 +637,30 @@ if btn_run:
         selected_loc = random.choice(list_lokasi)
         list_titik_random = loader.get_list_titik(selected_loc)
         selected_point = random.choice(list_titik_random) if list_titik_random else None
+    
+
+    # --- KALKULASI DURASI ---
+    use_rand_dur = st.session_state.get('chk_dur', False)
+    
+    if use_rand_dur: 
+        final_start_y = st.session_state.get('date_start', 2020)
+        final_end_y = st.session_state.get('date_end', 2020)
+    else: 
+        actual_years = loader.get_available_years(selected_loc, selected_point)
+        
+        if actual_years:
+            dur_req = st.session_state.get('rand_dur_years', 1)
+            dur_req = min(dur_req, len(actual_years)) 
+            
+            max_start_idx = len(actual_years) - dur_req
+            
+            rand_idx = random.randint(0, max_start_idx)
+            
+            final_start_y = actual_years[rand_idx]
+            final_end_y = actual_years[rand_idx + dur_req - 1]
+        else:
+            final_start_y, final_end_y = 2020, 2020
+
 
     # --- KALKULASI BEBAN ---
     all_files = loader.get_list_load_profiles()
@@ -693,12 +735,12 @@ if btn_run:
 
     auto_charge_power = math.ceil(final_p_bat * 0.4)
 
-    with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {start_y}-{end_y}..."):
+    with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {final_start_y}-{final_end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 
             selected_point, 
-            start_y, 
-            end_y, 
+            final_start_y, 
+            final_end_y, 
             fixed_load_file=final_load_file 
         )
         tm.sleep(0.5) 
@@ -736,7 +778,7 @@ if btn_run:
             df_result = calculator.run_simulation(df_input, params)
         
         st.session_state['hasil_simulasi'] = df_result
-        st.session_state['info_simulasi'] = f"{selected_loc}_{selected_point}_{start_y}-{end_y}"
+        st.session_state['info_simulasi'] = f"{selected_loc}_{selected_point}_{final_start_y}-{final_end_y}"
         
         tariff_snapshot = {
             'is_tou': use_ToU,
@@ -772,7 +814,7 @@ if btn_run:
             'vpp_thresh': vpp_price,
             'tariff_data': tariff_snapshot,
             'location': f"{selected_loc} - {selected_point}",
-            'period': f"{start_y} to {end_y}",
+            'period': f"{final_start_y} to {final_end_y}",
             'load_source': final_load_file,
             'load_multiplier': final_load_mult 
         }

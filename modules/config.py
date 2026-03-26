@@ -144,9 +144,14 @@ def apply_row_to_session(selected_row):
                     st.session_state[widget_key] = time(h, m)
                 except: pass
             elif widget_key.startswith("chk_"):
-                if pd.isna(val): st.session_state[widget_key] = False
-                elif isinstance(val, str): st.session_state[widget_key] = (val.strip().upper() == "TRUE")
-                else: st.session_state[widget_key] = bool(val)
+                if pd.isna(val): 
+                    st.session_state[widget_key] = False
+                else:
+                    teks_val = str(val).strip().upper()
+                    if teks_val in ["TRUE", "1", "1.0"]:
+                        st.session_state[widget_key] = True
+                    else:
+                        st.session_state[widget_key] = False
             else:
                 if not pd.isna(val):
                     if db_col == "bat_init_soc":

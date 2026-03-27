@@ -101,7 +101,7 @@ def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year, fixed_loa
     
     solar_path = get_master_solar_path(path_titik)
     if not solar_path:
-        st.error("File Solar Master tidak ditemukan.")
+        st.error("Master Solar file not found.")
         return None
         
     base_irr, base_temp = load_solar_array(solar_path)
@@ -109,7 +109,7 @@ def load_and_merge_data(nama_lokasi, nama_titik, start_year, end_year, fixed_loa
     base_load, load_name = load_load_profile_array(fixed_load_file)
     
     if base_irr is None or base_load is None:
-        st.error("Gagal memuat data array Solar/Load.")
+        st.error("Failed to load Solar/Load array data.")
         return None
         
     st.toast(f"Load Profile: {load_name}")

@@ -735,7 +735,7 @@ if btn_run:
 
     auto_charge_power = math.ceil(final_p_bat * 0.4)
 
-    with st.spinner(f"Combine data {selected_loc} ({selected_point}) dari {final_start_y}-{final_end_y}..."):
+    with st.spinner(f"Combining data for {selected_loc} ({selected_point}) from {final_start_y}-{final_end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 
             selected_point, 

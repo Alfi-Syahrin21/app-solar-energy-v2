@@ -54,5 +54,5 @@ def get_student_logs():
         df = df.dropna(subset=['NIM', 'Timestamp'])
         return df
     except Exception as e:
-        st.error(f"⚠️ Gagal mengambil data log: {e}")
+        st.error(f"⚠️ Failed to fetch log data: {e}")
         return pd.DataFrame()

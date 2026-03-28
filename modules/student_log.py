@@ -43,7 +43,7 @@ def save_log_to_sheets(nim, config_name, used_params_dict):
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"⚠️ Failed To Save Student Log: {e}")
+        st.error(f"⚠️ Failed to Save Student Log: {e}")
         return False
 
 def get_student_logs():

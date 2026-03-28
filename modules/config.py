@@ -115,7 +115,7 @@ def save_config_to_sheets(config_name, current_state):
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"⚠️ Failed To Save Config: {e}")
+        st.error(f"⚠️ Failed to Save Config: {e}")
         return False
     
 def apply_row_to_session(selected_row):

@@ -112,7 +112,7 @@ if st.session_state['role'] == 'admin':
                     success = cfg.save_config_to_sheets(new_config_name, st.session_state)
                     if success:
                         st.session_state['active_config'] = new_config_name
-                        st.success("✅ Succesfully Saved Config!")
+                        st.success("✅ Successfully Saved Config!")
                         tm.sleep(1)
                         st.rerun()
         st.divider()
@@ -121,12 +121,12 @@ if st.session_state['role'] == 'admin':
 
     
     with tab_config:
-        st.markdown("Set parameter region and period to start generate data")
+        st.markdown("Set region and period parameters to generate data")
 
         col_dp, col_spec = st.columns([1, 1], gap="medium")
 
         with col_dp:
-            st.subheader("📁 Data Parameter")
+            st.subheader("📁 Data Parameters")
             col_location, col_tariff = st.columns([1, 1.4])
 
             with col_location:
@@ -215,7 +215,7 @@ if st.session_state['role'] == 'admin':
                         st.session_state['rand_dur_years'] = ui_dur
                         
                 else:
-                    st.warning("There is no data on this point!")
+                    st.warning("No data available for this location!")
                     st.stop()
 
                 st.info("🏠 Load Profile")
@@ -254,7 +254,7 @@ if st.session_state['role'] == 'admin':
                 
 
             with col_tariff:
-                st.info("⚙️ VPP Setting")
+                st.info("⚙️ VPP Settings")
                 vpp_price = st.number_input("Dispatch Price Threshold (AUD/MWh)", 0, 2000, step=10, key="vpp_threshold")
 
                 st.info("💲 Tariff")
@@ -288,7 +288,7 @@ if st.session_state['role'] == 'admin':
                     p_flat = st.number_input("Flat Price (AUD/kWh)", 0.0, 2.0, step=0.01, key="imp_tariff")
 
         with col_spec:
-            st.subheader("⚙️ System Specification")
+            st.subheader("⚙️ System Specifications")
             
             col_panel, col_battery = st.columns(2)
             with col_panel:
@@ -425,7 +425,7 @@ if st.session_state['role'] == 'admin':
                             )
                             
                             if df_input_regen is None:
-                                st.error(f"❌ Dataset Fail to Load! Check Folder 'dataset/{reg}/{pt}'")
+                                st.error(f"❌ Dataset Failed to Load! Check Folder 'dataset/{reg}/{pt}'")
                             else:
                                 col_load_regen = 'load_profile' if 'load_profile' in df_input_regen.columns else 'beban_rumah_kw'
                                 df_input_regen[col_load_regen] = df_input_regen[col_load_regen] * saved_params['load_multiplier']
@@ -567,7 +567,7 @@ else :
 if btn_run:
     if st.session_state['role'] == 'student':
         if not st.session_state.get('current_nim'):
-            st.warning("⚠️ Please Input Your Student ID!")
+            st.warning("⚠️ Please Enter Your Student ID!")
             st.stop()
 
         df_hist = cfg.load_config_history()
@@ -774,7 +774,7 @@ if btn_run:
             'shoulder_price': p_shoulder
         }
         
-        with st.spinner("Calculate Energy Flow..."):
+        with st.spinner("Calculating Energy Flow..."):
             df_result = calculator.run_simulation(df_input, params)
         
         st.session_state['hasil_simulasi'] = df_result

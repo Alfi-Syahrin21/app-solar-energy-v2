@@ -735,6 +735,7 @@ if btn_run:
 
     auto_charge_power = math.ceil(final_p_bat * 0.4)
 
+    st.toast(f"📄 Load Profile: {final_load_file}")
     with st.spinner(f"Combining data for {selected_loc} ({selected_point}) from {final_start_y}-{final_end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 

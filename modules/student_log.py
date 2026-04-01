@@ -50,7 +50,7 @@ def get_student_logs():
     """Mengambil riwayat log mahasiswa dari Google Sheets"""
     try:
         conn = get_gsheets_connection()
-        df = conn.read(worksheet=TAB_LOGS, ttl=180)
+        df = conn.read(worksheet=TAB_LOGS, ttl=0)
         df = df.dropna(subset=['NIM', 'Timestamp'])
         return df
     except Exception as e:

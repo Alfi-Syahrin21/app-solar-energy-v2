@@ -380,7 +380,7 @@ if st.session_state['role'] == 'admin':
                 df_logs,
                 gridOptions=gridOptions,
                 update_on=['selectionChanged'], 
-                fit_columns_on_grid_load=False, 
+                fit_columns_on_grid_load=True, 
                 theme='streamlit', 
                 height=400
             )

@@ -380,9 +380,9 @@ if st.session_state['role'] == 'admin':
                 df_logs,
                 gridOptions=gridOptions,
                 update_on=['selectionChanged'], 
-                fit_columns_on_grid_load=True, 
+                fit_columns_on_grid_load=False, 
                 theme='streamlit', 
-                height=400
+                height=375
             )
             
             st.divider()

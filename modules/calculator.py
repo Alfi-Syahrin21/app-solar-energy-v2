@@ -183,9 +183,17 @@ def run_simulation(df, params):
     df_res['battery_soc_kwh'] = (df_res['battery_soc_pct'] / 100.0) * params['battery_capacity_kwh']
     
     # 2. Hitung Tarif Ekspor & Impor
-    df_res['tariff_export_AUD'] = params['export_price']
+    scheme = params.get('tariff_scheme', 'Flat')
     
-    if params['is_tou']:
+    if scheme == 'Spot Price':
+        if 'price_profile' in df_res.columns:
+            df_res['tariff_import_AUD'] = df_res['price_profile'] * 0.001 + df_res['price_profile'] * 0.001 * 0.05 
+            df_res['tariff_export_AUD'] = df_res['price_profile'] * 0.001 + df_res['price_profile'] * 0.001 * 0.05
+        else:
+            df_res['tariff_import_AUD'] = 0.0
+            df_res['tariff_export_AUD'] = 0.0
+        
+    elif scheme == 'Time of Use':
         p_start = params['t_peak_start'].hour
         p_end = params['t_peak_end'].hour
         s_start = params['t_shoulder_start'].hour
@@ -198,18 +206,29 @@ def run_simulation(df, params):
                 return (h_array >= start) & (h_array < end)
             elif start > end:
                 return (h_array >= start) | (h_array < end)
+            else:
                 return pd.Series(False, index=h_array.index)
         
         cond_peak = get_mask(hours, p_start, p_end)
         cond_shoulder = get_mask(hours, s_start, s_end)
         
+        # Eksekusi Numpy Select untuk IMPORT
         df_res['tariff_import_AUD'] = np.select(
             [cond_peak, cond_shoulder], 
             [params['peak_price'], params['shoulder_price']], 
             default=params['offpeak_price']
         )
-    else:
+        
+        # Eksekusi Numpy Select untuk EXPORT
+        df_res['tariff_export_AUD'] = np.select(
+            [cond_peak, cond_shoulder], 
+            [params.get('exp_peak', 0.0), params.get('exp_shoulder', 0.0)], 
+            default=params.get('exp_offpeak', 0.0)
+        )
+        
+    else: # Default: Flat
         df_res['tariff_import_AUD'] = params['import_flat']
+        df_res['tariff_export_AUD'] = params['export_price']
         
     final_cols = [
         'timestamp',

@@ -266,7 +266,7 @@ if st.session_state['role'] == 'admin':
                 vpp_price = st.number_input("Dispatch Price Threshold (AUD/MWh)", 0, 2000, step=10, key="vpp_threshold")
 
                 st.info("💲 Tariff")
-                list_scheme = ["Flat", "Time of Use", "Spot Price"]
+                list_scheme = ["Flat", "Time of Use", "Wholesale Price"]
                 saved_scheme = st.session_state.get('tariff_scheme', 'Flat')
                 idx_scheme = list_scheme.index(saved_scheme) if saved_scheme in list_scheme else 0
                 
@@ -310,8 +310,8 @@ if st.session_state['role'] == 'admin':
                         e_offpeak = st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="e_offpeak")
                         e_shoulder = st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="e_shoulder")
 
-                # elif ui_scheme == "Spot Price":
-                #     st.success("📈 **Spot Price Active**\n\nTariff will dynamically follow the wholesale market price:\n- **Import:** Spot Price × 10%\n- **Export:** Spot Price × 5%")
+                elif ui_scheme == "Wholesale Price":
+                    st.info("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
 
         with col_spec:
             st.subheader("⚙️ System Specifications")
@@ -468,7 +468,8 @@ if st.session_state['role'] == 'admin':
                                     'max_discharge_kw': saved_params['bat_discharge_kw'],
                                     'soc_min_pct': saved_params['soc_min'],
                                     'soc_max_pct': saved_params['soc_max'],
-                                    'dispatch_price_threshold': saved_params['vpp_thresh'], 
+                                    'dispatch_price_threshold': saved_params['vpp_thresh'],
+                                    'df_wholesale_fees': loader.get_wholesale_fees(selected_loc), 
                                 }
                                 
                                 t_data = saved_params['tariff_data']
@@ -558,8 +559,8 @@ if st.session_state['role'] == 'admin':
                     schema_name = t_data.get('tariff_scheme', "Flat")
                     st.markdown(f"**⚡ Scheme:** `{schema_name}`")
                     
-                    if schema_name == "Spot Price":
-                        st.markdown("- **Import:** Spot Price(AUD/kWh) + 5%\n- **Export:** Spot Price(AUD/kWh) + 5%")
+                    if schema_name == "Wholesale Price":
+                        st.markdown("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
                     else:
                         tc1, tc2 = st.columns(2)
                         with tc1:
@@ -806,6 +807,7 @@ if btn_run:
             't_shoulder_start': st.session_state.get('t_s_start', time(14,0)),
             't_shoulder_end': st.session_state.get('t_s_end', time(17,0)),
             'tariff_scheme': tariff_scheme,
+            'df_wholesale_fees': loader.get_wholesale_fees(selected_loc),
             'export_price': exp_price,
             'import_flat': p_flat,
             'peak_price': p_peak,
@@ -922,8 +924,8 @@ if st.session_state['hasil_simulasi'] is not None:
                     schema_name = t_data.get('tariff_scheme', "Time of Use" if t_data.get('is_tou') else "Flat")
                     st.markdown(f"**Scheme:** `{schema_name}`")
                     
-                    if schema_name == "Spot Price":
-                        st.markdown("- **Import:** Spot Price (AUD/kWh) + 5%\n- **Export:** Spot Price (AUD/kWh) + 5%")
+                    if schema_name == "Wholesale Price":
+                        st.markdown("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
                     else:
                         tc1, tc2 = st.columns(2)
                         with tc1:
@@ -942,7 +944,6 @@ if st.session_state['hasil_simulasi'] is not None:
         st.markdown("### 💾 Export Data")
         
         df_export = df_result.copy()
-        df_export = df_export.round(2)
 
         output_columns = [
             'timestamp',
@@ -965,8 +966,10 @@ if st.session_state['hasil_simulasi'] is not None:
             'irradiance': 'irradiance_Wh/m^2',
             'temperature': 'temperature_C',
             'load_profile': 'load_kW',
-            'price_profile': 'price_AUD',
-            'battery_soc_pct': 'battery_soc_%'
+            'price_profile': 'price_AUD/mWh',
+            'battery_soc_pct': 'battery_soc_%',
+            'tariff_import_AUD': 'tariff_import_AUD/kWh',
+            'tariff_export_AUD': 'tariff_export_AUD/kWh'
         })
         
         csv = df_export.to_csv(index=False).encode('utf-8')

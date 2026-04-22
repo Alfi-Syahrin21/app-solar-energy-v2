@@ -8,4 +8,4 @@ numba>=0.63.1
 
 joblib
 pyarrow
-st-gsheets-connection
+supabase==2.4.3

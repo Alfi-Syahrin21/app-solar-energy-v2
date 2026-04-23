@@ -108,7 +108,7 @@ if st.session_state['role'] == 'admin':
             if new_config_name.strip() == "":
                 st.warning("⚠️ Empty Config Name")
             else:
-                with st.spinner("Saving to Google Sheets..."):
+                with st.spinner("Saving to Database..."):
                     success = cfg.save_config_to_sheets(new_config_name, st.session_state)
                     if success:
                         st.session_state['active_config'] = new_config_name

@@ -782,7 +782,21 @@ if btn_run:
     else:
         final_p_bat = p_bat_fix
 
-    auto_charge_power = math.ceil(final_p_bat * 0.4)
+    bat_total_range = p_bat_max - p_bat_min
+    
+    if bat_total_range <= 0:
+        bat_segment_idx = 2 
+    else:
+        bat_segment_width = bat_total_range / 5
+        bat_segment_idx = int((final_p_bat - p_bat_min) / bat_segment_width)
+        bat_segment_idx = max(0, min(4, bat_segment_idx))
+
+    if bat_segment_idx == 0:
+        auto_charge_power = 5.0
+    elif bat_segment_idx in [1, 2]:
+        auto_charge_power = 10.0
+    else:
+        auto_charge_power = 15.0
 
     st.toast(f"📄 Load Profile: {final_load_file}")
     with st.spinner(f"Combining data for {selected_loc} ({selected_point}) from {final_start_y}-{final_end_y}..."):

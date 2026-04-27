@@ -495,9 +495,9 @@ if st.session_state['role'] == 'admin':
                             reg = loc_split[0].strip()
                             pt = " - ".join(loc_split[1:]).strip() 
                             
-                            yr_split = saved_params['period'].split(" to ")
+                            yr_split = str(saved_params['period']).split(" to ")
                             sy = int(yr_split[0])
-                            ey = int(yr_split[1])
+                            ey = int(yr_split[1]) if len(yr_split) > 1 else sy
                             
                             df_input_regen = loader.load_and_merge_data(
                                 reg, pt, sy, ey, fixed_load_file=saved_params['load_source']
@@ -934,7 +934,7 @@ if btn_run:
             'vpp_thresh': vpp_price,
             'tariff_data': tariff_snapshot,
             'location': f"{selected_loc} - {selected_point}",
-            'period': f"{final_start_y} to {final_end_y}",
+            'period': f"{final_start_y}" if final_start_y == final_end_y else f"{final_start_y} to {final_end_y}",
             'load_source': final_load_file,
             'load_multiplier': final_load_mult 
         }

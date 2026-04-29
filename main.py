@@ -1045,7 +1045,7 @@ if st.session_state['hasil_simulasi'] is not None:
         df_export = df_export[final_cols]
 
         df_export = df_export.rename(columns={
-            'irradiance': 'irradiance_Wh/m^2',
+            'irradiance': 'irradiance_W/m^2',
             'temperature': 'temperature_C',
             'load_profile': 'load_kW',
             'price_profile': 'price_AUD/mWh',

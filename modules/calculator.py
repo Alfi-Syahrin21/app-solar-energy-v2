@@ -37,8 +37,8 @@ def simulate_battery_numba(
     # =====================================================================
     # PENGATURAN ARBITRASE 
     # =====================================================================
-    TARGET_SOC_ARB_PCT = 0.50     
-    PRICE_WHOLESALE_CHEAP = 0.01  
+    TARGET_SOC_ARB_PCT = 0.30     
+    PRICE_WHOLESALE_CHEAP = 0.05  
     PRICE_NEGATIVE = 0.0          
     # =====================================================================
 

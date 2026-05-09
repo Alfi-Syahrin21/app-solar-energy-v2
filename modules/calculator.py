@@ -70,19 +70,23 @@ def simulate_battery_numba(
         # ---------------------------------------------------------
         elif tariff_mode_int == 1:
             if is_off_peak:
-                # Off-peak: Beli listrik sampai target 30%. Baterai dilarang discharge ke rumah.
+                # Off-peak: Boleh discharge, TAPI batas bawahnya 30%.
                 if current_kwh < target_soc_kwh:
                     power_to_target = -((target_soc_kwh - current_kwh) / (eff_oneway * dt))
                     target_power = min(net_load, power_to_target) if net_load < 0 else power_to_target
                 else:
-                    target_power = net_load if net_load < 0 else 0.0
+                    if net_load > 0:
+                        max_allowed_discharge = (current_kwh - target_soc_kwh) * eff_oneway / dt
+                        target_power = min(net_load, max_allowed_discharge)
+                    else:
+                        target_power = net_load
             
             elif is_shoulder:
-                # Shoulder: Baterai diam/nahan daya. Hanya charge kalau ada sisa matahari.
-                target_power = net_load if net_load < 0 else 0.0
+                # Shoulder: Boleh discharge & charge normal (Flat)
+                target_power = net_load
                 
-            else: 
-                # Peak: Baterai diizinkan menutupi beban rumah.
+            else: # Jam Peak 
+                # Peak: Boleh discharge & charge normal
                 target_power = net_load
 
         # ---------------------------------------------------------

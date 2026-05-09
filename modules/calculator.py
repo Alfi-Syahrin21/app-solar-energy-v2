@@ -38,7 +38,7 @@ def simulate_battery_numba(
     
     TARGET_SOC_ARB_PCT = 0.30     
     PRICE_WHOLESALE_CHEAP = 0.05  
-    PRICE_WHOLESALE_HIGH = 0.20   
+    PRICE_WHOLESALE_HIGH = 0.10   
     PRICE_NEGATIVE = 0.0          
 
     for i in range(n):

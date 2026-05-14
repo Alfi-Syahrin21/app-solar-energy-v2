@@ -94,21 +94,25 @@ def simulate_battery_numba(
         # ---------------------------------------------------------
         elif tariff_mode_int == 2:
             if current_price <= PRICE_WHOLESALE_CHEAP:
-                # Harga Murah: Beli listrik sampai target 30%. Dilarang discharge ke rumah.
                 if current_kwh < target_soc_kwh:
-                    power_to_target = -((target_soc_kwh - current_kwh) / (eff_oneway * dt))
-                    target_power = min(net_load, power_to_target) if net_load < 0 else power_to_target
+                    if net_load < 0:
+                        # ADA excess matahari: Murni pakai matahari saja, DILARANG beli tambahan dari grid
+                        target_power = net_load
+                    else:
+                        # TIDAK ADA excess matahari: Beli murni dari grid untuk kejar 30%
+                        power_to_target = -((target_soc_kwh - current_kwh) / (eff_oneway * dt))
+                        target_power = power_to_target
                 else:
+                    # Sudah 30% ke atas: Hanya terima excess matahari, tidak beli grid
                     target_power = net_load if net_load < 0 else 0.0
             
             elif current_price >= PRICE_WHOLESALE_HIGH:
-                # Harga Mahal: Baterai diizinkan menutupi beban rumah (Self Consumption).
+                # Boleh discharge. 
                 target_power = net_load
                 
             else:
-                # Harga Normal (50 - 200): Baterai diam/nahan daya. Hanya charge dari sisa matahari.
+                # BATERAI DIAM (0.0). Rumah murni pakai listrik Grid jika tidak ada matahari.
                 target_power = net_load if net_load < 0 else 0.0
-
         # ---------------------------------------------------------
         # 5. SKEMA FLAT (Baseline Normal)
         # ---------------------------------------------------------

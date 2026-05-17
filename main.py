@@ -1137,69 +1137,69 @@ if st.session_state['hasil_simulasi'] is not None:
                     else:
                         st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
-        
-        with st.expander("⚙️ View Battery Logic Flow", expanded=False):
-            schema_name = t_data.get('tariff_scheme', "Flat")
-            display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
-            
-            st.markdown(f"**Active Ruleset:** `{display_name}`\n")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            if schema_name == "Time of Use":
-                with col1:
-                    st.markdown("""
-                    **Self-Consumption: Yes**
-                    - *Conditions:* Whenever price in Peak and Shoulder Period and there is no excess/lack of solar.
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Charge from Grid: Yes**
-                    - *Conditions:* Whenever price in Off-peak period and battery SoC lower than 30%.
-                    - *Limit:* Automatically stops when SoC hits 30%.
-                    """)
-                with col3:
-                    st.markdown("""
-                    **Hold Scenarios** *(Prioritize Grid to Supply Load)*
-                    - Solar alone can supply the load.
-                    - Off-peak period when battery SoC already capped at 30%.
-                    """)
-                    
-            elif schema_name == "Wholesale Price":
-                with col1:
-                    st.markdown("""
-                    **Self-Consumption: Yes**
-                    - *Conditions:* Whenever export tariff Price exceeds 10 c/kWh and there is no excess/lack of solar.
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Charge from Grid: Yes**
-                    - *Conditions:* Whenever export tariff lower than 5c/kWh, battery SoC lower than 30%, and there is no excess solar.
-                    - *Limit:* Automatically stops when SoC hits 30%.
-                    """)
-                with col3:
-                    st.markdown("""
-                    **Hold Scenarios** *(Prioritize Grid to Supply Load)*
-                    - Solar alone can supply the load.
-                    - When export tariff between 5-10c/kWh.
-                    - Low price (<5c/kWh) when battery SoC already capped at 30%.
-                    """)
-                    
-            else: # Flat
-                with col1:
-                    st.markdown("""
-                    **Self-Consumption: Yes**
-                    - *Conditions:* Whenever load needs supply and there is no excess/lack of solar.
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Charge from Grid: No**
-                    """)
-                with col3:
-                    st.markdown("""
-                    **Hold Scenarios** *(Prioritize Grid to Supply Load)*
-                    - Solar alone can supply the load.
-                    """)
+        if st.session_state.get('role', 'student') == 'admin':
+            with st.expander("⚙️ View Battery Logic Flow", expanded=False):
+                schema_name = t_data.get('tariff_scheme', "Flat")
+                display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
+                
+                st.markdown(f"**Active Ruleset:** `{display_name}`\n")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                if schema_name == "Time of Use":
+                    with col1:
+                        st.markdown("""
+                        **Self-Consumption: Yes**
+                        - *Conditions:* Whenever price in Peak and Shoulder Period and there is no excess/lack of solar.
+                        """)
+                    with col2:
+                        st.markdown("""
+                        **Charge from Grid: Yes**
+                        - *Conditions:* Whenever price in Off-peak period and battery SoC lower than 30%.
+                        - *Limit:* Automatically stops when SoC hits 30%.
+                        """)
+                    with col3:
+                        st.markdown("""
+                        **Hold Scenarios** *(Prioritize Grid to Supply Load)*
+                        - Solar alone can supply the load.
+                        - Off-peak period when battery SoC already capped at 30%.
+                        """)
+                        
+                elif schema_name == "Wholesale Price":
+                    with col1:
+                        st.markdown("""
+                        **Self-Consumption: Yes**
+                        - *Conditions:* Whenever export tariff Price exceeds 10 c/kWh and there is no excess/lack of solar.
+                        """)
+                    with col2:
+                        st.markdown("""
+                        **Charge from Grid: Yes**
+                        - *Conditions:* Whenever export tariff lower than 5c/kWh, battery SoC lower than 30%, and there is no excess solar.
+                        - *Limit:* Automatically stops when SoC hits 30%.
+                        """)
+                    with col3:
+                        st.markdown("""
+                        **Hold Scenarios** *(Prioritize Grid to Supply Load)*
+                        - Solar alone can supply the load.
+                        - When export tariff between 5-10c/kWh.
+                        - Low price (<5c/kWh) when battery SoC already capped at 30%.
+                        """)
+                        
+                else: # Flat
+                    with col1:
+                        st.markdown("""
+                        **Self-Consumption: Yes**
+                        - *Conditions:* Whenever load needs supply and there is no excess/lack of solar.
+                        """)
+                    with col2:
+                        st.markdown("""
+                        **Charge from Grid: No**
+                        """)
+                    with col3:
+                        st.markdown("""
+                        **Hold Scenarios** *(Prioritize Grid to Supply Load)*
+                        - Solar alone can supply the load.
+                        """)
 
         st.markdown("### 💾 Export Data")
         

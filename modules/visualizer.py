@@ -177,7 +177,6 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
     # --- ROW 5: Monthly VPP Economics ---
     if 'vpp_export_value_AUD' in monthly.columns:
-        st.divider()
         x_pos = np.arange(len(months_labels))
         colors_econ = np.where(monthly["net_cost"] <= 0, "#55A868", np.where(monthly["net_cost"] <= monthly["vpp_payment"], "#DD8452", "#C44E52"))
         fig_econ, ax_econ = plt.subplots(figsize=(14, 6))
@@ -192,7 +191,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
     # --- ROW 6: Monthly Electricity Bill Comparison ---
     if 'bill_actual' in monthly.columns:
-        st.divider()
+
         bill_cols = ["bill_actual", "bill_solar_only", "bill_grid_only"]
         labels_bill = ["Actual (PV + Battery)", "Solar Only", "No Battery & Solar"]
         x_b = np.arange(len(months_labels)); width = 0.25
@@ -208,7 +207,6 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
     # --- ROW 7: Yearly Electricity Bill Comparison ---
     if 'bill_actual' in monthly.columns:
-        st.divider()
         fig_y_bill, ax_y_bill = plt.subplots(figsize=(10, 6))
         bars = ax_y_bill.bar(yearly_bill_series.index, yearly_bill_series.values, color=["#1f77b4", "#9467bd", "#ff7f0e", "#2ca02c"], width=0.6)
         padding = max(abs(yearly_bill_series.max()), abs(yearly_bill_series.min())) * 0.15
@@ -238,7 +236,6 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         plt.tight_layout(); st.pyplot(fig_scatter); plt.close(fig_scatter)
 
     # --- ROW 9: Monthly Self-Consumption & Self-Sufficiency ---
-    st.divider()
     fig_ss, ax1_ss = plt.subplots(figsize=(14, 6))
     x_m = np.arange(len(months_labels))
     ax1_ss.plot(x_m, monthly_metrics["self_consumption_pct"], marker="o", linewidth=2, label="PV Self-Consumption")
@@ -293,7 +290,6 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
     plt.tight_layout(); st.pyplot(fig_h_sol); plt.close(fig_h_sol)
 
     # --- CHART 2: Monthly Scrollable Battery Operation ---
-    st.divider()
     fig_bat, ax1 = plt.subplots(figsize=(24, 5))
     ax1.plot(hourly_sample.index, hourly_sample["solar_output_kwh"], label="PV Generation", linewidth=1.2)
     ax1.plot(hourly_sample.index, hourly_sample["load_kwh"], label="Load", linewidth=1.2)

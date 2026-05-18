@@ -78,20 +78,25 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     monthly["normal_battery_discharge_kwh"] = (monthly["battery_discharge_kwh"] - monthly["vpp_bat_dis_kwh_tmp"]).clip(lower=0)
 
     # --- ROW 7 Prep (VPP Financials) ---
-    monthly["vpp_payment"] = 20.0 
+    monthly["vpp_payment"] = 20.0
     if "vpp_operational_net_value_AUD" in monthly.columns:
-        monthly["net_cost"] = monthly["vpp_operational_net_value_AUD"] * -1
+
+        monthly["net_cost"] = monthly["vpp_extra_import_cost_AUD"] - monthly["vpp_export_value_AUD"]
         total_extra_import_cost = monthly["vpp_extra_import_cost_AUD"].sum()
-        total_export_value = monthly["vpp_export_value_AUD"].sum()
-        contract_payment = monthly["vpp_payment"].sum()
-        total_net_cost = total_extra_import_cost - total_export_value - contract_payment
-        after_export_value = total_extra_import_cost - total_export_value
-        after_contract = after_export_value - contract_payment
+        total_export_value      = monthly["vpp_export_value_AUD"].sum()
+        contract_payment        = monthly["vpp_payment"].sum()
+        total_net_cost          = total_extra_import_cost - total_export_value - contract_payment
+        after_export_value      = total_extra_import_cost - total_export_value
+        after_contract          = after_export_value - contract_payment
 
     # --- ROW 8 Prep (Bill Comparisons) ---
     if "bill_actual" in monthly.columns:
         monthly["bill_pv_battery_with_vpp_payment"] = monthly["bill_actual"] - monthly["vpp_payment"]
-        monthly["bill_pv_battery_no_vpp"] = monthly["bill_actual"] + monthly.get("vpp_operational_net_value_AUD", 0)
+        monthly["bill_pv_battery_no_vpp"] = (
+            monthly["bill_actual"]
+            + monthly["vpp_extra_import_cost_AUD"]
+            - monthly["vpp_export_value_AUD"]
+        )
         bill_cols = ["bill_pv_battery_with_vpp_payment", "bill_pv_battery_no_vpp", "bill_solar_only", "bill_grid_only"]
         labels_bill = ["PV + Battery + VPP", "PV + Battery (No VPP)", "Solar Only", "No Battery & Solar"]
         colors_bill = ["#1f77b4", "#9467bd", "#ff7f0e", "#2ca02c"]

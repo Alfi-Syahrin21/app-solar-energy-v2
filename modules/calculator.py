@@ -226,8 +226,7 @@ def run_simulation(df, params):
     arr_temp = df['temperature'].to_numpy(dtype=np.float64)
     arr_load = df['load_profile'].to_numpy(dtype=np.float64)
     
-    # Hitung Solar Output 
-    temp_factor = 1 + (params['temp_coeff'] * (arr_temp))
+    temp_factor = 1 + (params['temp_coeff'] * arr_temp)
     solar_kw = params['solar_capacity_kw'] * (arr_irr / 1000.0) * temp_factor * params['pr']
     solar_kw = np.maximum(solar_kw, 0.0) 
     
@@ -271,35 +270,37 @@ def run_simulation(df, params):
             df_res['tariff_export_AUD'] = 0.0
         
     elif scheme == 'Time of Use':
-        p_start = params['t_peak_start'].hour
-        p_end = params['t_peak_end'].hour
-        s_start = params['t_shoulder_start'].hour
-        s_end = params['t_shoulder_end'].hour
-        
-        hours = df_res['timestamp'].dt.hour
-        
-        def get_mask(h_array, start, end):
-            if start < end:
-                return (h_array >= start) & (h_array < end)
-            elif start > end:
-                return (h_array >= start) | (h_array < end)
+        # Gunakan time_float (jam + menit/60) supaya konsisten dengan get_time_mask() di baterai
+        timestamps_local = df_res['timestamp']
+        time_float_tariff = (timestamps_local.dt.hour + timestamps_local.dt.minute / 60.0).to_numpy(dtype=np.float64)
+
+        p_start_f = params['t_peak_start'].hour + params['t_peak_start'].minute / 60.0
+        p_end_f   = params['t_peak_end'].hour   + params['t_peak_end'].minute   / 60.0
+        s_start_f = params['t_shoulder_start'].hour + params['t_shoulder_start'].minute / 60.0
+        s_end_f   = params['t_shoulder_end'].hour   + params['t_shoulder_end'].minute   / 60.0
+
+        def _mask_float(arr, s, e):
+            if s < e:
+                return (arr >= s) & (arr < e)
+            elif s > e:
+                return (arr >= s) | (arr < e)
             else:
-                return pd.Series(False, index=h_array.index)
-        
-        cond_peak = get_mask(hours, p_start, p_end)
-        cond_shoulder = get_mask(hours, s_start, s_end)
-        
+                return np.zeros(len(arr), dtype=bool)
+
+        cond_peak     = _mask_float(time_float_tariff, p_start_f, p_end_f)
+        cond_shoulder = _mask_float(time_float_tariff, s_start_f, s_end_f)
+
         # Eksekusi Numpy Select untuk IMPORT
         df_res['tariff_import_AUD'] = np.select(
-            [cond_peak, cond_shoulder], 
-            [params['peak_price'], params['shoulder_price']], 
+            [cond_peak, cond_shoulder],
+            [params['peak_price'], params['shoulder_price']],
             default=params['offpeak_price']
         )
-        
+
         # Eksekusi Numpy Select untuk EXPORT
         df_res['tariff_export_AUD'] = np.select(
-            [cond_peak, cond_shoulder], 
-            [params.get('exp_peak', 0.0), params.get('exp_shoulder', 0.0)], 
+            [cond_peak, cond_shoulder],
+            [params.get('exp_peak', 0.0), params.get('exp_shoulder', 0.0)],
             default=params.get('exp_offpeak', 0.0)
         )
         
@@ -393,8 +394,8 @@ def run_simulation(df, params):
     df_res['vpp_grid_import_after_discharge_kw'] = arr_extra_import
 
     # 4. Kalkulasi Ekonomi (Financials)
-    tariff_import = df_res.get('tariff_import_AUD', 0.20)
-    tariff_export = df_res.get('tariff_export_AUD', 0.08)
+    tariff_import = df_res['tariff_import_AUD']
+    tariff_export = df_res['tariff_export_AUD']
     
     df_res['vpp_export_value_AUD'] = (df_res['vpp_grid_export_kw'] * dt_hours) * tariff_export
     df_res['vpp_extra_import_cost_AUD'] = (df_res['vpp_grid_import_after_discharge_kw'] * dt_hours) * tariff_import
@@ -431,12 +432,17 @@ def run_simulation(df, params):
     df_export = df_res[avail_cols].copy()
     
     tariff_cols = ['tariff_import_AUD', 'tariff_export_AUD']
+    bool_cols   = ['vpp_status', 'vpp_charge']
     for c in tariff_cols:
         if c in df_export.columns:
             df_export[c] = df_export[c].round(5)
-            
-    other_cols = [c for c in df_export.columns if c not in tariff_cols and c != 'timestamp']
+
+    other_cols = [
+        c for c in df_export.columns
+        if c not in tariff_cols and c not in bool_cols and c != 'timestamp'
+    ]
     for c in other_cols:
-        df_export[c] = df_export[c].round(2)
+        if pd.api.types.is_numeric_dtype(df_export[c]):
+            df_export[c] = df_export[c].round(2)
         
     return df_export

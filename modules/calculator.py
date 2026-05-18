@@ -372,7 +372,17 @@ def run_simulation(df, params):
     # FINALISASI KALKULASI & EKONOMI VPP
     # =====================================================================
     dt_hours = 5.0 / 60.0
-    
+
+    kw_cols_early = [
+        'solar_output_kw', 'battery_power_ac_kw', 'battery_soc_pct',
+        'battery_soc_kwh', 'grid_net_kw'
+    ]
+    for c in kw_cols_early:
+        if c in df_res.columns:
+            df_res[c] = df_res[c].round(2)
+    df_res['tariff_import_AUD'] = df_res['tariff_import_AUD'].round(5)
+    df_res['tariff_export_AUD'] = df_res['tariff_export_AUD'].round(5)
+
     # 1. Aliran Daya Dasar
     df_res['grid_import_kw'] = np.where(df_res['grid_net_kw'] > 0, df_res['grid_net_kw'], 0)
     df_res['grid_export_kw'] = np.where(df_res['grid_net_kw'] < 0, -df_res['grid_net_kw'], 0)

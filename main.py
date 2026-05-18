@@ -558,16 +558,7 @@ if st.session_state['role'] == 'admin':
                                     
                                 df_result_regen = calculator.run_simulation(df_input_regen, sim_params)
                                 
-                                df_export = df_result_regen.copy()
-                                tariff_cols_regen = ['tariff_import_AUD', 'tariff_export_AUD']
-                                other_cols_regen = [c for c in df_export.columns if c not in tariff_cols_regen and c != 'timestamp']
-                                for c in tariff_cols_regen:
-                                    if c in df_export.columns:
-                                        df_export[c] = df_export[c].round(5)
-                                for c in other_cols_regen:
-                                    if pd.api.types.is_numeric_dtype(df_export[c]):
-                                        df_export[c] = df_export[c].round(2)
-                                df_export = df_export.rename(columns={
+                                df_export = df_result_regen.round(2).rename(columns={
                                     'irradiance': 'irradiance_Wh/m^2',
                                     'temperature': 'temperature_C',
                                     'load_profile': 'load_kW',

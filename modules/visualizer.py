@@ -121,11 +121,16 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         
         ax1.legend(title="Energy Source", fontsize='small', loc='upper center') 
         
-        info_text = f"Annual Load: {annual_load:,.0f} kWh\nAnnual PV: {annual_pv:,.0f} kWh"
-        props = dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8, edgecolor='grey')
-        ax1.text(0.97, 0.97, info_text, transform=ax1.transAxes, fontsize=10, fontweight="bold",
-                verticalalignment='top', horizontalalignment='right', bbox=props)
-        # -------------------
+        ax1.text(
+            0.98, 0.95,
+            f"Annual Load: {annual_load:,.0f} kWh\n"
+            f"Annual PV: {annual_pv:,.0f} kWh",
+            transform=ax1.transAxes,
+            ha="right",
+            va="top",
+            fontsize=9,
+            bbox=dict(facecolor="white", alpha=0.8)
+        )
         
         ax1.grid(axis='y', alpha=0.3); ax1.margins(x=0.02)
         plt.tight_layout(); st.pyplot(fig1); plt.close(fig1)

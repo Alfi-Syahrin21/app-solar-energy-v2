@@ -221,7 +221,6 @@ def get_time_mask(time_float_arr, start_t, end_t):
 
 
 def run_simulation(df, params):
-    
     arr_irr = df['irradiance'].to_numpy(dtype=np.float64)
     arr_temp = df['temperature'].to_numpy(dtype=np.float64)
     arr_load = df['load_profile'].to_numpy(dtype=np.float64)
@@ -375,7 +374,7 @@ def run_simulation(df, params):
 
     kw_cols_early = [
         'solar_output_kw', 'battery_power_ac_kw', 'battery_soc_pct',
-        'battery_soc_kwh', 'grid_net_kw'
+        'battery_soc_kwh', 'grid_net_kw','load_profile'
     ]
     for c in kw_cols_early:
         if c in df_res.columns:

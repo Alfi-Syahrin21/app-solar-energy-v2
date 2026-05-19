@@ -7,60 +7,131 @@ import calendar
 import pandas as pd
 
 def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
-    factor = 5.0 / 60.0 
-    
-    # PRE-CALCULATION YEARLY GRAPH
+    DT_HOURS = 5.0 / 60.0
+
     df_calc = df_vis_year.copy()
     col_load = 'load_profile' if 'load_profile' in df_calc.columns else 'beban_rumah_kw'
-    
-    # 1. Konversi Base Data (kW -> kWh)
-    df_calc['solar_output_kwh'] = df_calc['solar_output_kw'] * factor
-    df_calc['battery_discharge_kwh'] = df_calc[col_bat].clip(lower=0) * factor
-    df_calc['grid_import_kwh'] = df_calc['grid_import_kw'] * factor
-    df_calc['grid_export_kwh'] = df_calc['grid_export_kw'] * factor
-    df_calc['load_kwh'] = df_calc[col_load] * factor
-    df_calc['vpp_bat_dis_kwh_tmp'] = (df_calc['vpp_battery_discharge_kw'] * factor) if 'vpp_battery_discharge_kw' in df_calc.columns else 0.0
-    df_calc['vpp_discharge_hours'] = df_calc["vpp_status"].astype(int) * factor if 'vpp_status' in df_calc.columns else 0.0
-    df_calc['extra_import_kwh'] = (df_calc['vpp_grid_import_after_discharge_kw'] * factor) if 'vpp_grid_import_after_discharge_kw' in df_calc.columns else 0.0
-    
-    df_calc = df_calc.set_index('timestamp')
-    df_calc["month"] = df_calc.index.month
-    df_calc["hour"] = df_calc.index.hour
 
-    # 2. Base Monthly Aggregation
-    monthly = df_calc.resample('ME').sum()
+    if not isinstance(df_calc.index, pd.DatetimeIndex):
+        df_calc = df_calc.set_index('timestamp')
+
+    df_calc["month"] = df_calc.index.month
+    df_calc["hour"]  = df_calc.index.hour
+
+    # --- Kolom energi (kW) yang akan di-sum lalu ×DT_HOURS ---
+    energy_cols_kw = {
+        'solar_output_kw':                    'solar_output_kwh',
+        col_bat:                              'battery_discharge_kwh',   
+        'grid_import_kw':                     'grid_import_kwh',
+        'grid_export_kw':                     'grid_export_kwh',
+        col_load:                             'load_kwh',
+        'vpp_grid_import_after_discharge_kw': 'extra_import_kwh',
+    }
+    if 'vpp_battery_discharge_kw' in df_calc.columns:
+        energy_cols_kw['vpp_battery_discharge_kw'] = 'vpp_bat_dis_kwh_tmp'
+
+    # Kolom moneter (AUD) — sum langsung tanpa ×DT_HOURS karena sudah dalam satuan AUD per baris
+    monetary_cols = [c for c in [
+        'bill_actual', 'bill_solar_only', 'bill_grid_only',
+        'vpp_export_value_AUD', 'vpp_extra_import_cost_AUD', 'vpp_operational_net_value_AUD',
+    ] if c in df_calc.columns]
+
+    # Kolom untuk heatmap (sudah dalam satuan waktu/energi per 5-menit, di-sum per jam)
+    heatmap_raw_cols = {}
+    if 'vpp_status' in df_calc.columns:
+        df_calc['vpp_discharge_hours_raw'] = df_calc['vpp_status'].astype(int) * DT_HOURS
+        heatmap_raw_cols['vpp_discharge_hours_raw'] = 'vpp_discharge_hours'
+    if 'vpp_grid_import_after_discharge_kw' in df_calc.columns:
+        df_calc['extra_import_kwh_raw'] = df_calc['vpp_grid_import_after_discharge_kw'] * DT_HOURS
+        heatmap_raw_cols['extra_import_kwh_raw'] = 'extra_import_kwh_hm'
+
+    # Siapkan semua kolom kW mentah
+    src_kw_cols = list(energy_cols_kw.keys())
+
+    # ── STEP 1: 5-min → Hourly ──
+    agg_dict_hourly = {c: 'sum' for c in src_kw_cols + list(heatmap_raw_cols.keys()) + monetary_cols
+                       if c in df_calc.columns}
+    if 'vpp_status' in df_calc.columns:
+        agg_dict_hourly['vpp_status'] = 'max'
+
+    hourly = df_calc.resample('h').agg(agg_dict_hourly)
+
+    # Konversi kW → kWh di level hourly (×DT_HOURS)
+    for src, dst in energy_cols_kw.items():
+        if src in hourly.columns:
+            hourly[dst] = hourly[src] * DT_HOURS
+    for src, dst in heatmap_raw_cols.items():
+        if src in hourly.columns:
+            hourly[dst] = hourly[src]   
+
+    if 'battery_discharge_kwh' in hourly.columns:
+        hourly['battery_discharge_kwh'] = hourly['battery_discharge_kwh'].clip(lower=0)
+
+    hourly = hourly.round(2)
+
+    # ── STEP 2: Hourly → Daily ──
+    energy_dst_cols = list(energy_cols_kw.values()) + monetary_cols
+    heatmap_dst_cols = list(heatmap_raw_cols.values())
+    agg_dict_daily = {c: 'sum' for c in energy_dst_cols + heatmap_dst_cols if c in hourly.columns}
+    if 'vpp_status' in hourly.columns:
+        agg_dict_daily['vpp_status'] = 'max'
+
+    daily = hourly.resample('D').agg(agg_dict_daily)
+    daily = daily.round(2)
+
+    # ── STEP 3: Daily → Monthly ──
+    monthly = daily.resample('ME').agg({c: 'sum' for c in agg_dict_daily.keys()})
+    monthly = monthly.round(2)
+
     months_labels = [d.strftime("%b") for d in monthly.index]
+
+    df_hm = df_calc.copy()
+    df_hm['_month'] = df_hm.index.month
+    df_hm['_hour']  = df_hm.index.hour
+    if 'vpp_discharge_hours_raw' in df_hm.columns:
+        heatmap_vpp = df_hm.pivot_table(index='_month', columns='_hour', values='vpp_discharge_hours_raw', aggfunc='sum') \
+                           .reindex(index=range(1, 13), columns=range(24)).fillna(0)
+    else:
+        heatmap_vpp = pd.DataFrame(0, index=range(1, 13), columns=range(24))
+    if 'extra_import_kwh_raw' in df_hm.columns:
+        heatmap_imp = df_hm.pivot_table(index='_month', columns='_hour', values='extra_import_kwh_raw', aggfunc='sum') \
+                           .reindex(index=range(1, 13), columns=range(24)).fillna(0)
+    else:
+        heatmap_imp = pd.DataFrame(0, index=range(1, 13), columns=range(24))
+
+    factor = DT_HOURS
     
-    # --- ROW 1 Prep (Contributions) & MODIFIKASI INFO TAHUNAN ---
+    # --- ROW 1 Prep ---
     elec_cols = ["solar_output_kwh", "battery_discharge_kwh", "grid_import_kwh"]
     monthly_pct = (monthly[elec_cols].div(monthly[elec_cols].sum(axis=1), axis=0) * 100)
-    
+
     annual_load = monthly["load_kwh"].sum()
-    annual_pv = monthly["solar_output_kwh"].sum()
+    annual_pv   = monthly["solar_output_kwh"].sum()
 
-    # --- ROW 2 Prep (Heatmaps) ---
-    heatmap_vpp = df_calc.pivot_table(index="month", columns="hour", values="vpp_discharge_hours", aggfunc="sum").reindex(index=range(1, 13), columns=range(24)).fillna(0)
-    heatmap_imp = df_calc.pivot_table(index="month", columns="hour", values="extra_import_kwh", aggfunc="sum").reindex(index=range(1, 13), columns=range(24)).fillna(0)
-
-    # --- ROW 3 Prep (Price Profile) ---
+    # --- ROW 3 Prep (Price Profile — dari data 5-menit asli) ---
     col_price = 'price_profile' if 'price_profile' in df_calc.columns else 'price_import'
     price_series = df_calc[col_price] if col_price in df_calc.columns else pd.Series(dtype=np.float64)
     vpp_mask_price = df_calc['vpp_status'] > 0 if 'vpp_status' in df_calc.columns else pd.Series(False, index=df_calc.index)
     dispatch_price_threshold = df_calc.loc[vpp_mask_price, col_price].min() if vpp_mask_price.any() else np.inf
-    mask_price_pos = (price_series > 0) & (price_series < dispatch_price_threshold)
-    mask_price_neg = price_series < 0
+    mask_price_pos  = (price_series > 0) & (price_series < dispatch_price_threshold)
+    mask_price_neg  = price_series < 0
     mask_price_disp = price_series >= dispatch_price_threshold
 
-    # --- ROW 4 Prep (Cumulative VPP) ---
-    cumulative_vpp = df_calc['vpp_grid_export_kw'].resample('D').sum().cumsum() * factor if 'vpp_grid_export_kw' in df_calc.columns else pd.Series(0, index=df_calc.resample('D').sum().index)
+    # --- ROW 4 Prep (Cumulative VPP — dari daily yang sudah di-resample) ---
     threshold_contract = 1000
+    if 'grid_export_kwh' in daily.columns and 'vpp_status' in daily.columns:
+        cumulative_vpp = daily['grid_export_kwh'].where(daily['vpp_status'] > 0, 0).cumsum()
+    elif 'vpp_grid_export_kw' in df_calc.columns:
+        cumulative_vpp = df_calc['vpp_grid_export_kw'].resample('D').sum().cumsum() * DT_HOURS
+    else:
+        cumulative_vpp = pd.Series(0, index=daily.index)
 
-    # --- ROW 5 Prep (Self Consumption & Sufficiency) ---
+    # --- ROW 5 Prep ---
     monthly["self_consumption_pct"] = ((monthly["solar_output_kwh"] - monthly["grid_export_kwh"]) / monthly["solar_output_kwh"].replace(0, np.nan)) * 100
     monthly["self_sufficiency_pct"] = (1 - (monthly["grid_import_kwh"] / monthly["load_kwh"].replace(0, np.nan))) * 100
     monthly.fillna(0, inplace=True)
 
-    # --- ROW 6 Prep (Dispatch Limit vs Battery Breakdown) ---
+    # --- ROW 6 Prep (Dispatch events — dari data 5-menit asli) ---
     event_df = pd.DataFrame()
     if 'vpp_status' in df_calc.columns:
         vpp_mask_event = df_calc['vpp_status'] > 0
@@ -68,20 +139,28 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         vpp_events_data = df_calc[vpp_mask_event]
         if not vpp_events_data.empty:
             grouped_events = vpp_events_data.groupby('event_id')
-            duration_h = grouped_events.size() * factor
+            duration_h = grouped_events.size() * DT_HOURS
             bat_power_kw = df_calc[col_bat].abs().max() or 15.0
             requested_vpp_kwh = duration_h * bat_power_kw
-            actual_vpp_discharge_kwh = grouped_events['vpp_bat_dis_kwh_tmp'].sum()
+            vpp_dis_col = 'vpp_battery_discharge_kw' if 'vpp_battery_discharge_kw' in df_calc.columns else col_bat
+            actual_vpp_discharge_kwh = grouped_events[vpp_dis_col].sum() * DT_HOURS
             dispatch_limited = actual_vpp_discharge_kwh < (requested_vpp_kwh - 0.1)
-            event_df = pd.DataFrame({'requested_vpp_kwh': requested_vpp_kwh, 'actual_vpp_discharge_kwh': actual_vpp_discharge_kwh, 'dispatch_limited': dispatch_limited})
-            
-    monthly["normal_battery_discharge_kwh"] = (monthly["battery_discharge_kwh"] - monthly["vpp_bat_dis_kwh_tmp"]).clip(lower=0)
+            event_df = pd.DataFrame({
+                'requested_vpp_kwh': requested_vpp_kwh,
+                'actual_vpp_discharge_kwh': actual_vpp_discharge_kwh,
+                'dispatch_limited': dispatch_limited
+            })
+
+    vpp_bat_col = 'vpp_bat_dis_kwh_tmp' if 'vpp_bat_dis_kwh_tmp' in monthly.columns else None
+    monthly["normal_battery_discharge_kwh"] = (
+        (monthly["battery_discharge_kwh"] - monthly[vpp_bat_col]).clip(lower=0)
+        if vpp_bat_col else monthly["battery_discharge_kwh"]
+    )
 
     # --- ROW 7 Prep (VPP Financials) ---
     monthly["vpp_payment"] = 20.0
     if "vpp_operational_net_value_AUD" in monthly.columns:
-
-        monthly["net_cost"] = monthly["vpp_extra_import_cost_AUD"] - monthly["vpp_export_value_AUD"]
+        monthly["net_cost"]     = monthly["vpp_extra_import_cost_AUD"] - monthly["vpp_export_value_AUD"]
         total_extra_import_cost = monthly["vpp_extra_import_cost_AUD"].sum()
         total_export_value      = monthly["vpp_export_value_AUD"].sum()
         contract_payment        = monthly["vpp_payment"].sum()
@@ -89,15 +168,13 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         after_export_value      = total_extra_import_cost - total_export_value
         after_contract          = after_export_value - contract_payment
 
-    # --- ROW 8 Prep (Bill Comparisons) ---
+    # --- ROW 8 Prep (Bill Comparisons) — mengikuti formula notebook ---
     if "bill_actual" in monthly.columns:
         monthly["bill_pv_battery_with_vpp_payment"] = monthly["bill_actual"] - monthly["vpp_payment"]
         monthly["bill_pv_battery_no_vpp"] = (
-            monthly["bill_actual"]
-            + monthly["vpp_extra_import_cost_AUD"]
-            - monthly["vpp_export_value_AUD"]
+            monthly["bill_actual"] + monthly["vpp_operational_net_value_AUD"]
         )
-        bill_cols = ["bill_pv_battery_with_vpp_payment", "bill_pv_battery_no_vpp", "bill_solar_only", "bill_grid_only"]
+        bill_cols   = ["bill_pv_battery_with_vpp_payment", "bill_pv_battery_no_vpp", "bill_solar_only", "bill_grid_only"]
         labels_bill = ["PV + Battery + VPP", "PV + Battery (No VPP)", "Solar Only", "No Battery & Solar"]
         colors_bill = ["#1f77b4", "#9467bd", "#ff7f0e", "#2ca02c"]
         yearly_bill_values = [monthly[col].sum() for col in bill_cols]
@@ -228,7 +305,8 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     ax1_ss.axvspan(4.5, 6.5, color="grey", alpha=0.18, label="High VPP Activity Period")
     
     ax2_ss = ax1_ss.twinx()
-    ax2_ss.bar(x_m, monthly["vpp_bat_dis_kwh_tmp"], alpha=0.25, color="red", width=0.65, label="VPP Discharge")
+    _vpp_bar_data = monthly["vpp_bat_dis_kwh_tmp"] if "vpp_bat_dis_kwh_tmp" in monthly.columns else pd.Series(0, index=monthly.index)
+    ax2_ss.bar(x_m, _vpp_bar_data, alpha=0.25, color="red", width=0.65, label="VPP Discharge")
     ax2_ss.set_ylabel("VPP Discharge (kWh)")
     
     lines1_ss, labels1_ss = ax1_ss.get_legend_handles_labels()
@@ -249,8 +327,8 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             fig_sc, ax_sc = plt.subplots(figsize=(6.5, 4.2))
             normal = event_df[~event_df["dispatch_limited"]]; limited = event_df[event_df["dispatch_limited"]]
             
-            ax_sc.scatter(normal["requested_vpp_kwh"], normal["actual_vpp_discharge_kwh"], color="steelblue", edgecolor="black", alpha=0.75, s=70, linewidth=0.8, label="Full Dispatch Achieved", zorder=5)
-            ax_sc.scatter(limited["requested_vpp_kwh"], limited["actual_vpp_discharge_kwh"], color="red", edgecolor="black", alpha=1.0, s=130, linewidth=1.5, marker="X", label="Dispatch Limited", zorder=10)
+            ax_sc.scatter(normal["requested_vpp_kwh"], normal["actual_vpp_discharge_kwh"], color="steelblue", edgecolor="black", alpha=0.75, s=70, linewidth=0.8, label="Full Dispatch Achieved", zorder=10)
+            ax_sc.scatter(limited["requested_vpp_kwh"], limited["actual_vpp_discharge_kwh"], color="red", edgecolor="black", alpha=1.0, s=130, linewidth=1.5, marker="X", label="Dispatch Limited", zorder=5)
             
             max_val = max(event_df["requested_vpp_kwh"].max(), event_df["actual_vpp_discharge_kwh"].max())
             ax_sc.plot([0, max_val], [0, max_val], linestyle="--", color="black", alpha=0.6, linewidth=1.5, label="Requested = Actual", zorder=1)
@@ -263,14 +341,21 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
         with c6_2:
             fig_bar_dis, ax_bar_dis = plt.subplots(figsize=(6.5, 4.2))
-            monthly[["normal_battery_discharge_kwh", "vpp_bat_dis_kwh_tmp"]].plot(
-                kind="bar", stacked=True, ax=ax_bar_dis, color=["skyblue", "orange"], width=0.8
-            )
+            _vpp_col = "vpp_bat_dis_kwh_tmp" if "vpp_bat_dis_kwh_tmp" in monthly.columns else None
+            if _vpp_col:
+                monthly[["normal_battery_discharge_kwh", _vpp_col]].plot(
+                    kind="bar", stacked=True, ax=ax_bar_dis, color=["skyblue", "orange"], width=0.8
+                )
+                ax_bar_dis.legend(["Normal Discharge", "VPP Discharge"], title="Source", fontsize='small')
+            else:
+                monthly[["normal_battery_discharge_kwh"]].plot(
+                    kind="bar", ax=ax_bar_dis, color=["skyblue"], width=0.8
+                )
+                ax_bar_dis.legend(["Normal Discharge"], title="Source", fontsize='small')
             ax_bar_dis.set_title("Monthly Battery Discharge Breakdown")
             ax_bar_dis.set_ylabel("Energy (kWh)")
             ax_bar_dis.set_xlabel("Month")
             ax_bar_dis.set_xticklabels(months_labels, rotation=0)
-            ax_bar_dis.legend(["Normal Discharge", "VPP Discharge"], title="Source", fontsize='small')
             ax_bar_dis.grid(axis="y", alpha=0.3)
             plt.tight_layout(); st.pyplot(fig_bar_dis); plt.close(fig_bar_dis)
             

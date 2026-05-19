@@ -221,6 +221,7 @@ def get_time_mask(time_float_arr, start_t, end_t):
 
 
 def run_simulation(df, params):
+
     arr_irr = df['irradiance'].to_numpy(dtype=np.float64)
     arr_temp = df['temperature'].to_numpy(dtype=np.float64)
     arr_load = df['load_profile'].to_numpy(dtype=np.float64)
@@ -440,15 +441,25 @@ def run_simulation(df, params):
 
     df_export = df_res[avail_cols].copy()
     
-    tariff_cols = ['tariff_import_AUD', 'tariff_export_AUD']
-    bool_cols   = ['vpp_status', 'vpp_charge']
+    tariff_cols        = ['tariff_import_AUD', 'tariff_export_AUD']
+    bool_cols          = ['vpp_status', 'vpp_charge']
+    monetary_bill_cols = ['bill_actual', 'bill_solar_only', 'bill_grid_only',
+                          'vpp_export_value_AUD', 'vpp_extra_import_cost_AUD', 'vpp_operational_net_value_AUD']
+
     for c in tariff_cols:
         if c in df_export.columns:
             df_export[c] = df_export[c].round(5)
 
+    for c in monetary_bill_cols:
+        if c in df_export.columns:
+            df_export[c] = df_export[c].round(6)
+
     other_cols = [
         c for c in df_export.columns
-        if c not in tariff_cols and c not in bool_cols and c != 'timestamp'
+        if c not in tariff_cols
+        and c not in bool_cols
+        and c not in monetary_bill_cols
+        and c != 'timestamp'
     ]
     for c in other_cols:
         if pd.api.types.is_numeric_dtype(df_export[c]):

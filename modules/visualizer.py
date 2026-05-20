@@ -18,10 +18,16 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     df_calc["month"] = df_calc.index.month
     df_calc["hour"]  = df_calc.index.hour
 
+
+    if col_bat in df_calc.columns:
+        df_calc['battery_discharge_kw'] = df_calc[col_bat].clip(lower=0)
+    else:
+        df_calc['battery_discharge_kw'] = 0.0
+
     # --- Kolom energi (kW) yang akan di-sum lalu ×DT_HOURS ---
     energy_cols_kw = {
         'solar_output_kw':                    'solar_output_kwh',
-        col_bat:                              'battery_discharge_kwh',   
+        'battery_discharge_kw':               'battery_discharge_kwh',
         'grid_import_kw':                     'grid_import_kwh',
         'grid_export_kw':                     'grid_export_kwh',
         col_load:                             'load_kwh',
@@ -29,6 +35,8 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     }
     if 'vpp_battery_discharge_kw' in df_calc.columns:
         energy_cols_kw['vpp_battery_discharge_kw'] = 'vpp_bat_dis_kwh_tmp'
+    if 'vpp_grid_export_kw' in df_calc.columns:
+        energy_cols_kw['vpp_grid_export_kw'] = 'vpp_grid_export_kwh'
 
     # Kolom moneter (AUD) — sum langsung tanpa ×DT_HOURS karena sudah dalam satuan AUD per baris
     monetary_cols = [c for c in [
@@ -119,8 +127,8 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
 
     # --- ROW 4 Prep (Cumulative VPP — dari daily yang sudah di-resample) ---
     threshold_contract = 1000
-    if 'grid_export_kwh' in daily.columns and 'vpp_status' in daily.columns:
-        cumulative_vpp = daily['grid_export_kwh'].where(daily['vpp_status'] > 0, 0).cumsum()
+    if 'vpp_grid_export_kwh' in daily.columns:
+        cumulative_vpp = daily['vpp_grid_export_kwh'].cumsum()
     elif 'vpp_grid_export_kw' in df_calc.columns:
         cumulative_vpp = df_calc['vpp_grid_export_kw'].resample('D').sum().cumsum() * DT_HOURS
     else:

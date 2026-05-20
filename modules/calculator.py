@@ -373,54 +373,48 @@ def run_simulation(df, params):
     # =====================================================================
     dt_hours = 5.0 / 60.0
 
-    kw_cols_early = [
-        'solar_output_kw', 'battery_power_ac_kw', 'battery_soc_pct',
-        'battery_soc_kwh', 'grid_net_kw','load_profile'
-    ]
-    for c in kw_cols_early:
-        if c in df_res.columns:
-            df_res[c] = df_res[c].round(2)
-    df_res['tariff_import_AUD'] = df_res['tariff_import_AUD'].round(5)
-    df_res['tariff_export_AUD'] = df_res['tariff_export_AUD'].round(5)
-
-    # 1. Aliran Daya Dasar
+    # 1. Aliran Daya Dasar — dihitung dari nilai presisi penuh (belum di-round)
     df_res['grid_import_kw'] = np.where(df_res['grid_net_kw'] > 0, df_res['grid_net_kw'], 0)
     df_res['grid_export_kw'] = np.where(df_res['grid_net_kw'] < 0, -df_res['grid_net_kw'], 0)
     df_res['vpp_charge'] = arr_price_raw < 0
-    
+
     # 2. Akuntansi VPP Discharge
-    df_res['vpp_battery_discharge_kw'] = np.where(df_res['vpp_status'] > 0, np.where(df_res['battery_power_ac_kw'] > 0, df_res['battery_power_ac_kw'], 0), 0)
+    df_res['vpp_battery_discharge_kw'] = np.where(
+        df_res['vpp_status'] > 0,
+        np.where(df_res['battery_power_ac_kw'] > 0, df_res['battery_power_ac_kw'], 0),
+        0
+    )
     df_res['vpp_grid_export_kw'] = np.where(df_res['vpp_status'] > 0, df_res['grid_export_kw'], 0)
-    
+
     # 3. Kalkulasi Extra Import Menggunakan Numba (Sangat Cepat)
     arr_soc_kwh = df_res['battery_soc_kwh'].to_numpy()
     arr_extra_import = calculate_extra_import_numba(
-        df_res['vpp_status'].to_numpy() > 0, 
-        df_res['battery_power_ac_kw'].to_numpy(), 
-        df_res['grid_net_kw'].to_numpy(), 
-        arr_soc_kwh, 
+        df_res['vpp_status'].to_numpy() > 0,
+        df_res['battery_power_ac_kw'].to_numpy(),
+        df_res['grid_net_kw'].to_numpy(),
+        arr_soc_kwh,
         dt_hours
     )
     df_res['vpp_grid_import_after_discharge_kw'] = arr_extra_import
 
-    # 4. Kalkulasi Ekonomi (Financials)
+    # 4. Kalkulasi Ekonomi (Financials) — semua pakai nilai presisi penuh
     tariff_import = df_res['tariff_import_AUD']
     tariff_export = df_res['tariff_export_AUD']
-    
+
     df_res['vpp_export_value_AUD'] = (df_res['vpp_grid_export_kw'] * dt_hours) * tariff_export
     df_res['vpp_extra_import_cost_AUD'] = (df_res['vpp_grid_import_after_discharge_kw'] * dt_hours) * tariff_import
     df_res['vpp_operational_net_value_AUD'] = df_res['vpp_export_value_AUD'] - df_res['vpp_extra_import_cost_AUD']
-    
+
     # 5. Kalkulasi Perbandingan Tagihan (Bill Comparison)
     df_res['bill_actual'] = (df_res['grid_import_kw'] * dt_hours * tariff_import) - (df_res['grid_export_kw'] * dt_hours * tariff_export)
-    
+
     # Skenario Solar Only
     col_load = 'load_profile' if 'load_profile' in df_res.columns else 'beban_rumah_kw'
     net_solar_only = df_res[col_load] - df_res['solar_output_kw']
     import_solar = np.where(net_solar_only > 0, net_solar_only, 0)
     export_solar = np.where(net_solar_only < 0, -net_solar_only, 0)
     df_res['bill_solar_only'] = (import_solar * dt_hours * tariff_import) - (export_solar * dt_hours * tariff_export)
-    
+
     # Skenario Grid Only
     df_res['bill_grid_only'] = (df_res[col_load] * dt_hours) * tariff_import
 
@@ -428,23 +422,27 @@ def run_simulation(df, params):
     # DAFTAR KOLOM FINAL (FINAL COLS)
     # =====================================================================
     final_cols = [
-        'timestamp', 'irradiance', 'temperature', 'load_profile', 'price_profile', 
-        'solar_output_kw', 'battery_soc_pct', 'battery_soc_kwh', 'battery_power_ac_kw', 
+        'timestamp', 'irradiance', 'temperature', 'load_profile', 'price_profile',
+        'solar_output_kw', 'battery_soc_pct', 'battery_soc_kwh', 'battery_power_ac_kw',
         'grid_net_kw', 'tariff_import_AUD', 'tariff_export_AUD',
         'vpp_status', 'vpp_charge', 'grid_import_kw', 'grid_export_kw',
         'vpp_battery_discharge_kw', 'vpp_grid_export_kw', 'vpp_grid_import_after_discharge_kw',
         'vpp_export_value_AUD', 'vpp_extra_import_cost_AUD', 'vpp_operational_net_value_AUD',
         'bill_actual', 'bill_solar_only', 'bill_grid_only'
     ]
-    
-    avail_cols = [c for c in final_cols if c in df_res.columns]
 
+    avail_cols = [c for c in final_cols if c in df_res.columns]
     df_export = df_res[avail_cols].copy()
-    
+
+    # =====================================================================
+    # ROUNDING AKHIR — dilakukan SETELAH semua kalkulasi selesai
+    # =====================================================================
     tariff_cols        = ['tariff_import_AUD', 'tariff_export_AUD']
     bool_cols          = ['vpp_status', 'vpp_charge']
-    monetary_bill_cols = ['bill_actual', 'bill_solar_only', 'bill_grid_only',
-                          'vpp_export_value_AUD', 'vpp_extra_import_cost_AUD', 'vpp_operational_net_value_AUD']
+    monetary_bill_cols = [
+        'bill_actual', 'bill_solar_only', 'bill_grid_only',
+        'vpp_export_value_AUD', 'vpp_extra_import_cost_AUD', 'vpp_operational_net_value_AUD'
+    ]
 
     for c in tariff_cols:
         if c in df_export.columns:
@@ -464,5 +462,5 @@ def run_simulation(df, params):
     for c in other_cols:
         if pd.api.types.is_numeric_dtype(df_export[c]):
             df_export[c] = df_export[c].round(2)
-        
+
     return df_export

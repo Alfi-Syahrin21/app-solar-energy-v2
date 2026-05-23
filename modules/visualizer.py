@@ -300,7 +300,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
         st.divider()
 
     # ============================================================
-    # ROW 5: Monthly Self Consumption, Sufficiency & VPP 
+    # ROW 5: Monthly Self Consumption, Sufficiency, PV Gen & VPP 
     # ============================================================
     
     fig_ss, ax1_ss = plt.subplots(figsize=(14, 5))
@@ -308,21 +308,44 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     ax1_ss.plot(x_m, monthly["self_consumption_pct"], marker="o", linewidth=2, label="PV Self-Consumption")
     ax1_ss.plot(x_m, monthly["self_sufficiency_pct"], marker="s", linewidth=2, label="Home Self-Sufficiency")
     ax1_ss.set_ylabel("Percentage (%)")
-    ax1_ss.set_ylim(bottom=0)
+    ax1_ss.set_ylim(0, 100)
     ax1_ss.set_xticks(x_m); ax1_ss.set_xticklabels(months_labels); ax1_ss.set_xlabel("Month")
     ax1_ss.axvspan(4.5, 6.5, color="grey", alpha=0.18, label="High VPP Activity Period")
     
     ax2_ss = ax1_ss.twinx()
+    bar_width = 0.35
+    
+    ax2_ss.bar(
+        x_m - bar_width/2, 
+        monthly["solar_output_kwh"], 
+        alpha=0.4, 
+        color="orange", 
+        width=bar_width, 
+        label="PV Generation"
+    )
+    
     _vpp_bar_data = monthly["vpp_bat_dis_kwh_tmp"] if "vpp_bat_dis_kwh_tmp" in monthly.columns else pd.Series(0, index=monthly.index)
-    ax2_ss.bar(x_m, _vpp_bar_data, alpha=0.25, color="red", width=0.65, label="VPP Discharge")
-    ax2_ss.set_ylabel("VPP Discharge (kWh)")
+    ax2_ss.bar(
+        x_m + bar_width/2, 
+        _vpp_bar_data, 
+        alpha=0.6, 
+        color="red", 
+        width=bar_width, 
+        label="VPP Discharge"
+    )
+    
+    ax2_ss.set_ylabel("Energy (kWh)")
     
     lines1_ss, labels1_ss = ax1_ss.get_legend_handles_labels()
     lines2_ss, labels2_ss = ax2_ss.get_legend_handles_labels()
     ax1_ss.legend(lines1_ss + lines2_ss, labels1_ss + labels2_ss, loc="lower left", fontsize='small')
-    ax1_ss.set_title("Monthly Self-Consumption, Self-Sufficiency, and VPP Dispatch Activity")
+    
+    ax1_ss.set_title("Monthly Self-Consumption, Self-Sufficiency, PV Generation, and VPP Dispatch Activity")
     ax1_ss.grid(alpha=0.3); ax1_ss.margins(x=0.02)
-    plt.tight_layout(); st.pyplot(fig_ss); plt.close(fig_ss)
+    
+    plt.tight_layout()
+    st.pyplot(fig_ss)
+    plt.close(fig_ss)
     st.divider()
 
     # ============================================================

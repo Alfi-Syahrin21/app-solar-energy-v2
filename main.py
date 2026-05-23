@@ -612,7 +612,7 @@ if st.session_state['role'] == 'admin':
                     with c_sys3:
                         st.markdown("#### ⚡ Control Logic")
                         st.markdown(f"""
-                        - VPP Threshold: **{used_p['vpp_thresh']} AUD**
+                        - VPP Threshold: **{used_p['vpp_thresh']} AUD/MWh**
                         - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
                         - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
                         """)
@@ -631,23 +631,24 @@ if st.session_state['role'] == 'admin':
                         with tc1:
                             st.markdown(f"**Export Tariff:**")
                             if schema_name == "Time of Use":
-                                st.markdown(f"- Peak: **{t_data.get('exp_peak', 0.15)} AUD**\n- Shoulder: **{t_data.get('exp_shoulder', 0.10)} AUD**\n- Off-Peak: **{t_data.get('exp_offpeak', 0.05)} AUD**")
+                                st.markdown(f"- Peak: **{t_data.get('exp_peak', 0.15)} AUD/kWh**\n- Shoulder: **{t_data.get('exp_shoulder', 0.10)} AUD/kWh**\n- Off-Peak: **{t_data.get('exp_offpeak', 0.05)} AUD/kWh**")
                             else:
                                 st.markdown(f"Flat Rate: **{t_data.get('export_price', 0.08)} AUD/kWh**")
                         with tc2:
                             st.markdown(f"**Import Tariff:**")
                             if schema_name == "Time of Use":
-                                st.markdown(f"- Peak: **{t_data.get('peak_price', 0.45)} AUD**\n- Shoulder: **{t_data.get('shoulder_price', 0.25)} AUD**\n- Off-Peak: **{t_data.get('offpeak_price', 0.15)} AUD**")
+                                st.markdown(f"- Peak: **{t_data.get('peak_price', 0.45)} AUD/kWh**\n- Shoulder: **{t_data.get('shoulder_price', 0.25)} AUD/kWh**\n- Off-Peak: **{t_data.get('offpeak_price', 0.15)} AUD/kWh**")
                             else:
                                 st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
+                
                 with st.expander("⚙️ View Battery Logic Flow", expanded=False):
                     schema_name = t_data.get('tariff_scheme', "Flat")
                     display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
                     
                     st.markdown(f"**Active Ruleset:** `{display_name}`\n")
                     
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     
                     if schema_name == "Time of Use":
                         with col1:
@@ -667,25 +668,37 @@ if st.session_state['role'] == 'admin':
                             - Solar alone can supply the load.
                             - Off-peak period when battery SoC already capped at 30%.
                             """)
+                        with col4:
+                            st.markdown(f"""
+                            **VPP Event Logic**
+                            - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                            - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
+                            """)
                             
                     elif schema_name == "Wholesale Price":
                         with col1:
                             st.markdown("""
                             **Self-Consumption: Yes**
-                            - *Conditions:* Whenever export tariff Price exceeds 10 c/kWh and there is no excess/lack of solar.
+                            - *Conditions:* Whenever Export Tariff exceeds **0.10 AUD/kWh** and there is no excess/lack of solar.
                             """)
                         with col2:
                             st.markdown("""
                             **Charge from Grid: Yes**
-                            - *Conditions:* Whenever export tariff lower than 5c/kWh, battery SoC lower than 30%, and there is no excess solar.
+                            - *Conditions:* Whenever Export Tariff lower than **0.05 AUD/kWh**, battery SoC lower than 30%, and there is no excess solar.
                             - *Limit:* Automatically stops when SoC hits 30%.
                             """)
                         with col3:
                             st.markdown("""
                             **Hold Scenarios** *(Prioritize Grid to Supply Load)*
                             - Solar alone can supply the load.
-                            - When export tariff between 5-10c/kWh.
-                            - Low price (<5c/kWh) when battery SoC already capped at 30%.
+                            - When Export Tariff between **0.05 - 0.10 AUD/kWh**.
+                            - Low price (**< 0.05 AUD/kWh**) when battery SoC already capped at 30%.
+                            """)
+                        with col4:
+                            st.markdown(f"""
+                            **VPP Event Logic**
+                            - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                            - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
                             """)
                             
                     else: # Flat
@@ -702,6 +715,12 @@ if st.session_state['role'] == 'admin':
                             st.markdown("""
                             **Hold Scenarios** *(Prioritize Grid to Supply Load)*
                             - Solar alone can supply the load.
+                            """)
+                        with col4:
+                            st.markdown(f"""
+                            **VPP Event Logic**
+                            - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                            - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
                             """)
                 
                 st.markdown("### 💾 Export Data")
@@ -1106,7 +1125,7 @@ if st.session_state['hasil_simulasi'] is not None:
                 with c_sys3:
                     st.markdown("#### ⚡ Control Logic")
                     st.markdown(f"""
-                    - VPP Threshold: **{used_p['vpp_thresh']} AUD**
+                    - VPP Threshold: **{used_p['vpp_thresh']} AUD/MWh**
                     - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
                     - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
                     """)
@@ -1127,13 +1146,13 @@ if st.session_state['hasil_simulasi'] is not None:
                 with tc1:
                     st.markdown(f"**Export Tariff:**")
                     if schema_name == "Time of Use":
-                        st.markdown(f"- Peak: **{t_data.get('exp_peak', 0.15)} AUD**\n- Shoulder: **{t_data.get('exp_shoulder', 0.10)} AUD**\n- Off-Peak: **{t_data.get('exp_offpeak', 0.05)} AUD**")
+                        st.markdown(f"- Peak: **{t_data.get('exp_peak', 0.15)} AUD/kWh**\n- Shoulder: **{t_data.get('exp_shoulder', 0.10)} AUD/kWh**\n- Off-Peak: **{t_data.get('exp_offpeak', 0.05)} AUD/kWh**")
                     else:
                         st.markdown(f"Flat Rate: **{t_data.get('export_price', 0.08)} AUD/kWh**")
                 with tc2:
                     st.markdown(f"**Import Tariff:**")
                     if schema_name == "Time of Use":
-                        st.markdown(f"- Peak: **{t_data.get('peak_price', 0.45)} AUD**\n- Shoulder: **{t_data.get('shoulder_price', 0.25)} AUD**\n- Off-Peak: **{t_data.get('offpeak_price', 0.15)} AUD**")
+                        st.markdown(f"- Peak: **{t_data.get('peak_price', 0.45)} AUD/kWh**\n- Shoulder: **{t_data.get('shoulder_price', 0.25)} AUD/kWh**\n- Off-Peak: **{t_data.get('offpeak_price', 0.15)} AUD/kWh**")
                     else:
                         st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
@@ -1144,7 +1163,7 @@ if st.session_state['hasil_simulasi'] is not None:
                 
                 st.markdown(f"**Active Ruleset:** `{display_name}`\n")
                 
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 
                 if schema_name == "Time of Use":
                     with col1:
@@ -1164,25 +1183,37 @@ if st.session_state['hasil_simulasi'] is not None:
                         - Solar alone can supply the load.
                         - Off-peak period when battery SoC already capped at 30%.
                         """)
+                    with col4:
+                        st.markdown(f"""
+                        **VPP Event Logic**
+                        - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                        - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
+                        """)
                         
                 elif schema_name == "Wholesale Price":
                     with col1:
                         st.markdown("""
                         **Self-Consumption: Yes**
-                        - *Conditions:* Whenever export tariff Price exceeds 10 c/kWh and there is no excess/lack of solar.
+                        - *Conditions:* Whenever Export Tariff exceeds **0.10 AUD/kWh** and there is no excess/lack of solar.
                         """)
                     with col2:
                         st.markdown("""
                         **Charge from Grid: Yes**
-                        - *Conditions:* Whenever export tariff lower than 5c/kWh, battery SoC lower than 30%, and there is no excess solar.
+                        - *Conditions:* Whenever Export Tariff lower than **0.05 AUD/kWh**, battery SoC lower than 30%, and there is no excess solar.
                         - *Limit:* Automatically stops when SoC hits 30%.
                         """)
                     with col3:
                         st.markdown("""
                         **Hold Scenarios** *(Prioritize Grid to Supply Load)*
                         - Solar alone can supply the load.
-                        - When export tariff between 5-10c/kWh.
-                        - Low price (<5c/kWh) when battery SoC already capped at 30%.
+                        - When Export Tariff between **0.05 - 0.10 AUD/kWh**.
+                        - Low price (**< 0.05 AUD/kWh**) when battery SoC already capped at 30%.
+                        """)
+                    with col4:
+                        st.markdown(f"""
+                        **VPP Event Logic**
+                        - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                        - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
                         """)
                         
                 else: # Flat
@@ -1199,6 +1230,12 @@ if st.session_state['hasil_simulasi'] is not None:
                         st.markdown("""
                         **Hold Scenarios** *(Prioritize Grid to Supply Load)*
                         - Solar alone can supply the load.
+                        """)
+                    with col4:
+                        st.markdown(f"""
+                        **VPP Event Logic**
+                        - *Force Charge:* Whenever spot price goes negative (**< 0 AUD/kWh**), force battery to charge from grid.
+                        - *Force Discharge:* Whenever spot price exceeds VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**), bypass load and force maximal export to grid.
                         """)
 
         st.markdown("### 💾 Export Data")

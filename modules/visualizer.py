@@ -380,15 +380,29 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             colors_econ = np.where(monthly["net_cost"] <= 0, "#55A868", np.where(monthly["net_cost"] <= monthly["vpp_payment"], "#DD8452", "#C44E52"))
             
             fig_econ, ax_econ = plt.subplots(figsize=(6.5, 4.2))
-            ax_econ.bar(x_pos, monthly["net_cost"], color=colors_econ, label="Net Operational Cost", width=0.7)
+            
+            ax_econ.bar(x_pos, monthly["net_cost"], color=colors_econ, width=0.7)
+            
             ax_econ.plot(x_pos, monthly["vpp_payment"], color="black", linestyle="--", linewidth=2, label="VPP Payment")
             ax_econ.plot(x_pos, monthly["vpp_extra_import_cost_AUD"], marker="o", linestyle="-", linewidth=2, label="Extra Import Cost ($)")
             ax_econ.plot(x_pos, monthly["vpp_export_value_AUD"], color="orange", marker="s", linestyle="-", linewidth=2, label="VPP Export Value ($)")
             
-            ax_econ.set_xticks(x_pos); ax_econ.set_xticklabels(months_labels)
-            ax_econ.set_ylabel("Value ($)"); ax_econ.set_title("Monthly VPP Export Value vs Extra Import Cost")
-            ax_econ.legend(fontsize='small', loc='upper left'); ax_econ.grid(axis='y', linestyle='--', alpha=0.5); ax_econ.margins(x=0.02)
-            plt.tight_layout(); st.pyplot(fig_econ); plt.close(fig_econ)
+            ax_econ.bar(np.nan, np.nan, color="#55A868", label="Monthly Net Cost Negative")
+            ax_econ.bar(np.nan, np.nan, color="#DD8452", label="Monthly Net Cost Positive")
+            ax_econ.bar(np.nan, np.nan, color="#C44E52", label="Monthly Net Cost > VPP Subscription Payment")
+            
+            ax_econ.set_xticks(x_pos)
+            ax_econ.set_xticklabels(months_labels)
+            ax_econ.set_ylabel("Value ($)")
+            ax_econ.set_title("Monthly VPP Export Value vs Extra Import Cost")
+            
+            ax_econ.legend(fontsize='small', loc='upper left')
+            ax_econ.grid(axis='y', linestyle='--', alpha=0.5)
+            ax_econ.margins(x=0.02)
+            
+            plt.tight_layout()
+            st.pyplot(fig_econ)
+            plt.close(fig_econ)
 
         with c7_2:
             fig_fin, ax_fin = plt.subplots(figsize=(6.5, 4.2))

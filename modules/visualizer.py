@@ -271,8 +271,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     # ROW 3: Electricity Spot Market Price Profile 
     # ============================================================
     if col_price in df_calc.columns:
-        
-        fig_price, ax_p = plt.subplots(figsize=(14, 5)) 
+        fig_price, ax_p = plt.subplots(figsize=(14, 4)) 
         if mask_price_pos.any(): ax_p.vlines(price_series.index[mask_price_pos], 0, price_series[mask_price_pos], color='#2FBF71', alpha=0.6, linewidth=1.5, label='Positive Price')
         if mask_price_neg.any(): ax_p.vlines(price_series.index[mask_price_neg], 0, price_series[mask_price_neg], color='#E76F51', alpha=0.6, linewidth=1.5, label='Negative Price')
         if mask_price_disp.any(): ax_p.vlines(price_series.index[mask_price_disp], 0, price_series[mask_price_disp], color='#7B2CBF', alpha=0.6, linewidth=1.5, label='Dispatch Price Event')
@@ -287,8 +286,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     # ROW 4: Cumulative VPP Discharge 
     # ============================================================
     if 'vpp_grid_export_kw' in df_calc.columns:
-        
-        fig_cum, ax_cum = plt.subplots(figsize=(14, 5))
+        fig_cum, ax_cum = plt.subplots(figsize=(14, 4))
         ax_cum.plot(cumulative_vpp.index, cumulative_vpp, linestyle='-', linewidth=2.5, color='blue', label='Cumulative VPP Discharge')
         ax_cum.fill_between(cumulative_vpp.index, cumulative_vpp, threshold_contract, where=(cumulative_vpp <= threshold_contract), color='green', alpha=0.3, label='Below limit')
         ax_cum.fill_between(cumulative_vpp.index, cumulative_vpp, threshold_contract, where=(cumulative_vpp > threshold_contract), color='red', alpha=0.3, label='Above limit')
@@ -302,13 +300,12 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     # ============================================================
     # ROW 5: Monthly Self Consumption, Sufficiency, PV Gen & VPP 
     # ============================================================
-    
-    fig_ss, ax1_ss = plt.subplots(figsize=(14, 5))
+    fig_ss, ax1_ss = plt.subplots(figsize=(14, 4))
     x_m = np.arange(len(months_labels))
     ax1_ss.plot(x_m, monthly["self_consumption_pct"], marker="o", linewidth=2, label="PV Self-Consumption")
     ax1_ss.plot(x_m, monthly["self_sufficiency_pct"], marker="s", linewidth=2, label="Home Self-Sufficiency")
     ax1_ss.set_ylabel("Percentage (%)")
-    ax1_ss.set_ylim(0, 100)
+    ax1_ss.set_ylim(0, 110)
     ax1_ss.set_xticks(x_m); ax1_ss.set_xticklabels(months_labels); ax1_ss.set_xlabel("Month")
     ax1_ss.axvspan(4.5, 6.5, color="grey", alpha=0.18, label="High VPP Activity Period")
     
@@ -406,20 +403,37 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             
             ax_econ.bar(x_pos, monthly["net_cost"], color=colors_econ, width=0.7)
             
-            ax_econ.plot(x_pos, monthly["vpp_payment"], color="black", linestyle="--", linewidth=2, label="VPP Payment")
-            ax_econ.plot(x_pos, monthly["vpp_extra_import_cost_AUD"], marker="o", linestyle="-", linewidth=2, label="Extra Import Cost ($)")
-            ax_econ.plot(x_pos, monthly["vpp_export_value_AUD"], color="orange", marker="s", linestyle="-", linewidth=2, label="VPP Export Value ($)")
+            line1, = ax_econ.plot(x_pos, monthly["vpp_payment"], color="black", linestyle="--", linewidth=2)
+            line2, = ax_econ.plot(x_pos, monthly["vpp_extra_import_cost_AUD"], marker="o", linestyle="-", linewidth=2)
+            line3, = ax_econ.plot(x_pos, monthly["vpp_export_value_AUD"], color="orange", marker="s", linestyle="-", linewidth=2)
             
-            ax_econ.bar(np.nan, np.nan, color="#55A868", label="Monthly Net Cost Negative")
-            ax_econ.bar(np.nan, np.nan, color="#DD8452", label="Monthly Net Cost Positive")
-            ax_econ.bar(np.nan, np.nan, color="#C44E52", label="Monthly Net Cost > VPP Subscription Payment")
+            
+            bar1 = ax_econ.bar(np.nan, np.nan, color="#55A868")
+            bar2 = ax_econ.bar(np.nan, np.nan, color="#DD8452")
+            bar3 = ax_econ.bar(np.nan, np.nan, color="#C44E52")
             
             ax_econ.set_xticks(x_pos)
             ax_econ.set_xticklabels(months_labels)
             ax_econ.set_ylabel("Value ($)")
             ax_econ.set_title("Monthly VPP Export Value vs Extra Import Cost")
             
-            ax_econ.legend(fontsize='small', loc='upper left')
+            legend_left = ax_econ.legend(
+                handles=[line1, line2, line3],
+                labels=["VPP Payment", "Extra Import Cost ($)", "VPP Export Value ($)"],
+                fontsize='small', 
+                loc='upper left'
+            )
+            
+            ax_econ.add_artist(legend_left)
+            
+            
+            ax_econ.legend(
+                handles=[bar1, bar2, bar3],
+                labels=["Net Cost Negative", "Net Cost Positive", "Net Cost > VPP Subscription"],
+                fontsize='small', 
+                loc='upper right'
+            )
+            
             ax_econ.grid(axis='y', linestyle='--', alpha=0.5)
             ax_econ.margins(x=0.02)
             
@@ -518,8 +532,7 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
     vpp_charge = df_m_calc['vpp_charge'] if 'vpp_charge' in df_m_calc.columns else pd.Series(False, index=df_m_calc.index)
 
     # RENDER AREA MONTHLY
-    # --- CHART 1: Irradiance Heatmap (Kompensasi Tinggi) ---
-    fig_h_sol, ax_hs = plt.subplots(figsize=(14, 5))
+    fig_h_sol, ax_hs = plt.subplots(figsize=(14, 4))
     im_sol = ax_hs.imshow(solar_matrix.to_numpy(), cmap='YlOrRd', aspect='auto', interpolation='nearest', origin='lower')
     ax_hs.set_xlabel("Day"); ax_hs.set_ylabel("Hour"); ax_hs.set_title(f"Irradiance Heatmap - {selected_month_name}")
     ax_hs.set_xticks(np.arange(0, days_in_month)); ax_hs.set_xticklabels(np.arange(1, days_in_month + 1))
@@ -528,9 +541,8 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
 
     st.divider()
 
-    # --- CHART 2: Monthly Scrollable Battery Operation (Kompensasi Tinggi Ekstrem) ---
-   
-    fig_bat, ax1 = plt.subplots(figsize=(24, 8.5))
+    # --- CHART 2: Monthly Scrollable Battery Operation ---
+    fig_bat, ax1 = plt.subplots(figsize=(18, 6))
     ax1.plot(hourly_sample.index, hourly_sample["solar_output_kwh"], label="PV Generation", linewidth=1.2)
     ax1.plot(hourly_sample.index, hourly_sample["load_kwh"], label="Load", linewidth=1.2)
     ax1.plot(hourly_sample.index, hourly_sample["grid_import_kwh"], label="Grid Import", linewidth=1.2)

@@ -10,7 +10,8 @@ MODE_PEAK     = 3
 @jit(nopython=True)
 def simulate_battery_numba(
     net_load_arr,      
-    price_arr,           
+    spot_price_arr,       
+    tariff_import_arr,    
     is_offpeak_arr,      
     is_peak_arr,        
     is_shoulder_arr,    
@@ -37,14 +38,12 @@ def simulate_battery_numba(
     dt = 5.0 / 60.0 
     
     TARGET_SOC_ARB_PCT = 0.30     
-    PRICE_WHOLESALE_CHEAP = 0.05  # Diubah ke AUD/kWh (50 AUD/MWh)
-    PRICE_WHOLESALE_HIGH = 0.10   # Diubah ke AUD/kWh (100 AUD/MWh)
+    PRICE_WHOLESALE_CHEAP = 0.05  
+    PRICE_WHOLESALE_HIGH = 0.10   
     PRICE_NEGATIVE = 0.0          
 
     for i in range(n):
         net_load = net_load_arr[i]
-        
-        current_price = price_arr[i] # Sekarang membaca Tariff Export matang
         is_off_peak = is_offpeak_arr[i]
         is_peak = is_peak_arr[i]
         is_shoulder = is_shoulder_arr[i]
@@ -60,9 +59,9 @@ def simulate_battery_numba(
             target_power = max_dis_kw
             
         # ---------------------------------------------------------
-        # 2. PRIORITAS KEDUA: VPP CHARGE (Harga Minus)
+        # 2. PRIORITAS KEDUA: VPP CHARGE (Pakai Spot Market Murni)
         # ---------------------------------------------------------
-        elif current_price < PRICE_NEGATIVE:
+        elif spot_price_arr[i] < PRICE_NEGATIVE:
             target_power = -max_chg_kw
             
         # ---------------------------------------------------------
@@ -93,8 +92,9 @@ def simulate_battery_numba(
         # 4. SKEMA WHOLESALE PRICE
         # ---------------------------------------------------------
         elif tariff_mode_int == 2:
-            if current_price <= PRICE_WHOLESALE_CHEAP:
-                if current_kwh < target_soc_kwh:
+            # SEMI CHARGE: Sekarang diubah pakai tariff_import_arr (Sesuai konsepmu)
+            if tariff_import_arr[i] <= PRICE_WHOLESALE_CHEAP: # <= 0.05
+                if current_kwh < target_soc_kwh: # Kejar target 30%
                     if net_load < 0:
                         # ADA excess matahari: Murni pakai matahari saja, DILARANG beli tambahan dari grid
                         target_power = net_load
@@ -106,13 +106,15 @@ def simulate_battery_numba(
                     # Sudah 30% ke atas: Hanya terima excess matahari, tidak beli grid
                     target_power = net_load if net_load < 0 else 0.0
             
-            elif current_price >= PRICE_WHOLESALE_HIGH:
-                # Boleh discharge. 
+            # DISCHARGE: Tetap pakai tariff_import_arr
+            elif tariff_import_arr[i] >= PRICE_WHOLESALE_HIGH: # >= 0.10
                 target_power = net_load
                 
+            # IDLE (DIAM): Otomatis terbentuk jika harga di antara 0.05 dan 0.10
             else:
                 # BATERAI DIAM (0.0). Rumah murni pakai listrik Grid jika tidak ada matahari.
                 target_power = net_load if net_load < 0 else 0.0
+
         # ---------------------------------------------------------
         # 5. SKEMA FLAT (Baseline Normal)
         # ---------------------------------------------------------
@@ -120,7 +122,7 @@ def simulate_battery_numba(
             # Apapun jamnya, prioritas utama: Solar -> Baterai -> Grid
             target_power = net_load
                 
-        # --- FISIKA BATERAI (JANGAN DIUBAH) ---
+        # --- FISIKA BATERAI ---
         target_power = max(-max_chg_kw, min(max_dis_kw, target_power))
         real_power = 0.0
         
@@ -237,9 +239,8 @@ def run_simulation(df, params):
     if 'price_import' in df_res.columns:
         df_res.rename(columns={'price_import': 'price_profile'}, inplace=True)
 
-    # -------------------------------------------------------------
-    # 2. Hitung Tarif Ekspor & Impor (Dipindah ke atas)
-    # -------------------------------------------------------------
+    # price_profile bertipe AUD/MWh, dibagi 1000 agar menjadi AUD/kWh
+    arr_spot_kwh = df_res['price_profile'].to_numpy(dtype=np.float64) / 1000.0
     scheme = params.get('tariff_scheme', 'Flat')
     
     if scheme == 'Wholesale Price': 
@@ -325,9 +326,6 @@ def run_simulation(df, params):
     vpp_thresh = params['dispatch_price_threshold']
     is_vpp_arr = arr_price_raw >= vpp_thresh
     
-    arr_price_export = df_res['tariff_export_AUD'].to_numpy(dtype=np.float64)
-    
-    # 3. Konversi Nama Skema
     scheme_name = params.get('tariff_scheme', 'Flat')
     if scheme_name == 'Time of Use':
         tariff_mode_int = 1
@@ -336,10 +334,12 @@ def run_simulation(df, params):
     else:
         tariff_mode_int = 0
         
-    # --- 4. Kalkulasi Baterai (Melempar arr_price_export yang sudah ada Market Fee) ---
+    arr_tariff_import = df_res['tariff_import_AUD'].to_numpy(dtype=np.float64)
+
     soc_pct, bat_power = simulate_battery_numba(
         net_load_pure,
-        arr_price_export,
+        arr_spot_kwh,       
+        arr_tariff_import,   
         is_offpeak,
         is_peak,         
         is_shoulder,      

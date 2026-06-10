@@ -407,7 +407,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             line2, = ax_econ.plot(x_pos, monthly["vpp_extra_import_cost_AUD"], marker="o", linestyle="-", linewidth=2)
             line3, = ax_econ.plot(x_pos, monthly["vpp_export_value_AUD"], color="orange", marker="s", linestyle="-", linewidth=2)
             
-            
+            # 2. Simpan handle untuk Dummy Bars (akan ditaruh di Kanan)
             bar1 = ax_econ.bar(np.nan, np.nan, color="#55A868")
             bar2 = ax_econ.bar(np.nan, np.nan, color="#DD8452")
             bar3 = ax_econ.bar(np.nan, np.nan, color="#C44E52")
@@ -417,22 +417,29 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
             ax_econ.set_ylabel("Value ($)")
             ax_econ.set_title("Monthly VPP Export Value vs Extra Import Cost")
             
+            # ============================================================
+            # PROSES MEMECAH LEGEND
+            # ============================================================
+            
+            # Legend 1: Sisi Kiri (Upper Left) - Untuk Line data
             legend_left = ax_econ.legend(
                 handles=[line1, line2, line3],
                 labels=["VPP Payment", "Extra Import Cost ($)", "VPP Export Value ($)"],
                 fontsize='small', 
                 loc='upper left'
             )
-            
+            # Kunci utama: tambahkan legend pertama ke grafik agar tidak terhapus
             ax_econ.add_artist(legend_left)
             
-            
+            # Legend 2: Sisi Kanan (Upper Right) - Untuk Keterangan Warna Bar
             ax_econ.legend(
                 handles=[bar1, bar2, bar3],
                 labels=["Net Cost Negative", "Net Cost Positive", "Net Cost > VPP Subscription"],
                 fontsize='small', 
                 loc='upper right'
             )
+            
+            # ============================================================
             
             ax_econ.grid(axis='y', linestyle='--', alpha=0.5)
             ax_econ.margins(x=0.02)
@@ -532,7 +539,8 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
     vpp_charge = df_m_calc['vpp_charge'] if 'vpp_charge' in df_m_calc.columns else pd.Series(False, index=df_m_calc.index)
 
     # RENDER AREA MONTHLY
-    fig_h_sol, ax_hs = plt.subplots(figsize=(14, 4))
+    # --- CHART 1: Irradiance Heatmap (Kompensasi Tinggi) ---
+    fig_h_sol, ax_hs = plt.subplots(figsize=(14, 5))
     im_sol = ax_hs.imshow(solar_matrix.to_numpy(), cmap='YlOrRd', aspect='auto', interpolation='nearest', origin='lower')
     ax_hs.set_xlabel("Day"); ax_hs.set_ylabel("Hour"); ax_hs.set_title(f"Irradiance Heatmap - {selected_month_name}")
     ax_hs.set_xticks(np.arange(0, days_in_month)); ax_hs.set_xticklabels(np.arange(1, days_in_month + 1))
@@ -541,8 +549,9 @@ def plot_monthly_analysis(df_vis_month, col_load, selected_month_name, selected_
 
     st.divider()
 
-    # --- CHART 2: Monthly Scrollable Battery Operation ---
-    fig_bat, ax1 = plt.subplots(figsize=(18, 6))
+    # --- CHART 2: Monthly Scrollable Battery Operation (Kompensasi Tinggi Ekstrem) ---
+   
+    fig_bat, ax1 = plt.subplots(figsize=(24, 8.5))
     ax1.plot(hourly_sample.index, hourly_sample["solar_output_kwh"], label="PV Generation", linewidth=1.2)
     ax1.plot(hourly_sample.index, hourly_sample["load_kwh"], label="Load", linewidth=1.2)
     ax1.plot(hourly_sample.index, hourly_sample["grid_import_kwh"], label="Grid Import", linewidth=1.2)

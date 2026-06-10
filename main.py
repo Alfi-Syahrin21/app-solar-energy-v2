@@ -574,12 +574,12 @@ if st.session_state['role'] == 'admin':
                                 st.session_state['regen_df_result'] = df_result_regen
 
                     except Exception as e:
-                        st.error(f"Failed To Process Data: {e}")
+                        st.error(f"Failed to process data: {e}")
             else:
-                st.info("Select one of the rows to Re-generate the Data.")
+                st.info("Select one of the rows to re-generate the data.")
                 
             if st.session_state.get('regen_csv_data') is not None:
-                st.success(f"✅ Data Has Been Re-generated!")
+                st.success(f"✅ Data has been re-generated!")
                 
                 used_p = st.session_state['regen_params']
                 t_data = used_p['tariff_data']
@@ -793,7 +793,7 @@ else :
     active_cfg = st.session_state.get('active_config', 'Default')
     st.info(f"👋 **Welcome!**  \n\nClick the button below to generate your dataset.")
             
-    student_nim = st.text_input("Student ID", placeholder="eg: z5593968").strip()
+    student_nim = st.text_input("Student ID", placeholder="e.g.: z5593968").strip()
     st.session_state['current_nim'] = student_nim
 
     st.markdown("---")
@@ -1088,10 +1088,10 @@ if btn_run:
             )
         
         with res_container: 
-            st.success(f"Data Has Been Generated!")
+            st.success(f"Data has been generated!")
     else:
         with res_container:
-            st.error("Failed to Generate the Data")
+            st.error("Failed to generate the data")
          
 
 if st.session_state['hasil_simulasi'] is not None:
@@ -1288,7 +1288,7 @@ if st.session_state['hasil_simulasi'] is not None:
             'irradiance': 'irradiance_W/m^2',
             'temperature': 'temperature_C',
             'load_profile': 'load_kW',
-            'price_profile': 'price_AUD/mWh',
+            'price_profile': 'price_AUD/MWh',
             'battery_soc_pct': 'battery_soc_%',
             'tariff_import_AUD': 'tariff_import_AUD/kWh',
             'tariff_export_AUD': 'tariff_export_AUD/kWh'

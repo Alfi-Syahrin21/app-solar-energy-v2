@@ -68,7 +68,7 @@ def load_config_history():
         df_history = pd.DataFrame(response.data)
         return df_history
     except Exception as e:
-        st.error(f"⚠️ Failed to Read Config History from Supabase: {e}")
+        st.error(f"⚠️ Failed to read config history from Supabase: {e}")
         return pd.DataFrame()
 
 def save_config_to_sheets(config_name, current_state):
@@ -124,7 +124,7 @@ def save_config_to_sheets(config_name, current_state):
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"⚠️ Failed to Save Config: {e}")
+        st.error(f"⚠️ Failed to save config: {e}")
         return False
     
 def apply_row_to_session(selected_row):

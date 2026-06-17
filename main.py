@@ -1277,96 +1277,98 @@ if st.session_state['hasil_simulasi'] is not None:
                         st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
         if st.session_state.get('role', 'student') == 'admin':
-            with st.expander("⚙️ View Battery Logic Flow", expanded=False):
-                schema_name = t_data.get('tariff_scheme', "Flat")
-                display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
-                
-                st.markdown(f"**Active Ruleset:** `{display_name}`\n")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                
-                if schema_name == "Time of Use":
-                    with col1:
-                        st.markdown("""
-                        **1. Self-Consumption**
-                        - *Status:* Enabled (`Yes`)
-                        - *Conditions:* When time falls within **Peak** or **Shoulder** periods, there is a solar deficit, and battery has capacity above minimum SoC.
-                        """)
-                    with col2:
-                        st.markdown("""
-                        **2. Charge from Grid**
-                        - *Status:* Enabled (`Yes`)
-                        - *Conditions:* During **Off-peak** period, if battery SoC drops **below 30%**.
-                        - *Limit:* Automatically stops at exactly **30%** SoC.
-                        """)
-                    with col3:
-                        st.markdown("""
-                        **3. Hold Scenarios**
-                        - *Status:* Active *(Standby/Idle)*
-                        - *Conditions:* Solar alone can supply the load, OR during **Off-peak** periods when battery is capped at **30%**.
-                        """)
-                    with col4:
-                        st.markdown(f"""
-                        **4. VPP Dispatch Override**
-                        - *Status:* Emergency Override
-                        - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                        - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                        """)
-                        
-                elif schema_name == "Wholesale Price":
-                    with col1:
-                        st.markdown("""
-                        **1. Self-Consumption**
-                        - *Status:* Enabled (`Yes`)
-                        - *Conditions:* When **Export Tariff** exceeds **10 c/kWh**, there is a solar deficit, and battery has capacity above minimum SoC.
-                        """)
-                    with col2:
-                        st.markdown("""
-                        **2. Charge from Grid**
-                        - *Status:* Enabled (`Yes`)
-                        - *Conditions:* When **Export Tariff** drops below **5 c/kWh**, battery SoC is **below 30%**, and no excess solar.
-                        - *Limit:* Automatically stops at exactly **30%** SoC.
-                        """)
-                    with col3:
-                        st.markdown("""
-                        **3. Hold Scenarios**
-                        - *Status:* Active *(Standby/Idle)*
-                        - *Conditions:* Solar alone can supply the load, Mid-Price Zone (**5 - 10 c/kWh** of **Export Tariff**), OR Low **Export Tariff** (**< 5 c/kWh**) when battery is capped at **30%**.
-                        """)
-                    with col4:
-                        st.markdown(f"""
-                        **4. VPP Override**
-                        - *Status:* Emergency Override
-                        - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                        - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                        """)
-                        
-                else: # Flat
-                    with col1:
-                        st.markdown("""
-                        **1. Self-Consumption**
-                        - *Status:* Enabled (`Yes`)
-                        - *Conditions:* Whenever load needs supply (solar deficit) and battery has capacity above minimum SoC.
-                        """)
-                    with col2:
-                        st.markdown("""
-                        **2. Charge from Grid**
-                        - *Status:* Disabled (`No`)
-                        - *Conditions:* Battery will never charge from the grid under normal baseline operations.
-                        """)
-                    with col3:
-                        st.markdown("""
-                        **3. Hold Scenarios**
-                        - *Status:* Active *(Standby/Idle)*
-                        - *Conditions:* Solar alone is completely sufficient to cover the household load.
-                        """)
-                    with col4:
-                        st.markdown(f"""
-                        **4. VPP Dispatch Override**
-                        - *Status:* Emergency Override
-                        - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                        - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                        """)
+            # Battery Logic Flow — hanya untuk Assignment 1
+            if asgn.show_battery(st.session_state.get('active_assignment', asgn.ASSIGNMENT_1)):
+                with st.expander("⚙️ View Battery Logic Flow", expanded=False):
+                    schema_name = t_data.get('tariff_scheme', "Flat")
+                    display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
+                    
+                    st.markdown(f"**Active Ruleset:** `{display_name}`\n")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    if schema_name == "Time of Use":
+                        with col1:
+                            st.markdown("""
+                            **1. Self-Consumption**
+                            - *Status:* Enabled (`Yes`)
+                            - *Conditions:* When time falls within **Peak** or **Shoulder** periods, there is a solar deficit, and battery has capacity above minimum SoC.
+                            """)
+                        with col2:
+                            st.markdown("""
+                            **2. Charge from Grid**
+                            - *Status:* Enabled (`Yes`)
+                            - *Conditions:* During **Off-peak** period, if battery SoC drops **below 30%**.
+                            - *Limit:* Automatically stops at exactly **30%** SoC.
+                            """)
+                        with col3:
+                            st.markdown("""
+                            **3. Hold Scenarios**
+                            - *Status:* Active *(Standby/Idle)*
+                            - *Conditions:* Solar alone can supply the load, OR during **Off-peak** periods when battery is capped at **30%**.
+                            """)
+                        with col4:
+                            st.markdown(f"""
+                            **4. VPP Dispatch Override**
+                            - *Status:* Emergency Override
+                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh', 'N/A')} AUD/MWh**).
+                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                            """)
+                            
+                    elif schema_name == "Wholesale Price":
+                        with col1:
+                            st.markdown("""
+                            **1. Self-Consumption**
+                            - *Status:* Enabled (`Yes`)
+                            - *Conditions:* When **Export Tariff** exceeds **10 c/kWh**, there is a solar deficit, and battery has capacity above minimum SoC.
+                            """)
+                        with col2:
+                            st.markdown("""
+                            **2. Charge from Grid**
+                            - *Status:* Enabled (`Yes`)
+                            - *Conditions:* When **Export Tariff** drops below **5 c/kWh**, battery SoC is **below 30%**, and no excess solar.
+                            - *Limit:* Automatically stops at exactly **30%** SoC.
+                            """)
+                        with col3:
+                            st.markdown("""
+                            **3. Hold Scenarios**
+                            - *Status:* Active *(Standby/Idle)*
+                            - *Conditions:* Solar alone can supply the load, Mid-Price Zone (**5 - 10 c/kWh** of **Export Tariff**), OR Low **Export Tariff** (**< 5 c/kWh**) when battery is capped at **30%**.
+                            """)
+                        with col4:
+                            st.markdown(f"""
+                            **4. VPP Override**
+                            - *Status:* Emergency Override
+                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh', 'N/A')} AUD/MWh**).
+                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                            """)
+                            
+                    else: # Flat
+                        with col1:
+                            st.markdown("""
+                            **1. Self-Consumption**
+                            - *Status:* Enabled (`Yes`)
+                            - *Conditions:* Whenever load needs supply (solar deficit) and battery has capacity above minimum SoC.
+                            """)
+                        with col2:
+                            st.markdown("""
+                            **2. Charge from Grid**
+                            - *Status:* Disabled (`No`)
+                            - *Conditions:* Battery will never charge from the grid under normal baseline operations.
+                            """)
+                        with col3:
+                            st.markdown("""
+                            **3. Hold Scenarios**
+                            - *Status:* Active *(Standby/Idle)*
+                            - *Conditions:* Solar alone is completely sufficient to cover the household load.
+                            """)
+                        with col4:
+                            st.markdown(f"""
+                            **4. VPP Dispatch Override**
+                            - *Status:* Emergency Override
+                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh', 'N/A')} AUD/MWh**).
+                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                            """)
 
         st.markdown("### 💾 Export Data")
         
@@ -1437,7 +1439,7 @@ if st.session_state['hasil_simulasi'] is not None:
                 m1.metric(f"Total Solar ({selected_vis_year})", f"{total_solar:,.2f} kWh")
                 m2.metric(f"Total Load ({selected_vis_year})", f"{total_load:,.2f} kWh")
 
-            visualizer.plot_annual_overview(df_vis_year, col_bat, selected_vis_year)
+            visualizer.plot_annual_overview(df_vis_year, col_bat, selected_vis_year, show_battery=asgn.show_battery(_vis_asgn))
             
             st.divider()
 

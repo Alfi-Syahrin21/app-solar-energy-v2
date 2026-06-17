@@ -1374,14 +1374,15 @@ if st.session_state['hasil_simulasi'] is not None:
 
         # Rename kolom internal → nama kolom output CSV
         df_export = df_export.rename(columns={
-            'irradiance':        'irradiance_W/m^2',
-            'temperature':       'temperature_C',
-            'load_profile':      'load_kW',
-            'price_profile':     'price_AUD/MWh',
-            'battery_soc_pct':   'battery_soc_%',
-            'tariff_import_AUD': 'tariff_import_AUD/kWh',
-            'tariff_export_AUD': 'tariff_export_AUD/kWh',
-            'grid_net_kw':       'grid_net_kW',
+            'irradiance':           'irradiance_W/m^2',
+            'temperature':          'temperature_C',
+            'load_profile':         'load_kW',
+            'price_profile':        'price_AUD/MWh',
+            'battery_soc_pct':      'battery_soc_%',
+            'battery_power_ac_kw':  'battery_power_ac_kW',
+            'tariff_import_AUD':    'tariff_import_AUD/kWh',
+            'tariff_export_AUD':    'tariff_export_AUD/kWh',
+            'grid_net_kw':          'grid_net_kW',
         })
 
         # Rounding tariff

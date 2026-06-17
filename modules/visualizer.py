@@ -110,6 +110,11 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year):
     factor = DT_HOURS
     
     # --- ROW 1 Prep ---
+    if 'battery_discharge_kwh' not in monthly.columns:
+        monthly['battery_discharge_kwh'] = 0.0
+    if 'grid_import_kwh' not in monthly.columns:
+        monthly['grid_import_kwh'] = 0.0
+
     elec_cols = ["solar_output_kwh", "battery_discharge_kwh", "grid_import_kwh"]
     monthly_pct = (monthly[elec_cols].div(monthly[elec_cols].sum(axis=1), axis=0) * 100)
 

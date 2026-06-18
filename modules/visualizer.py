@@ -6,7 +6,18 @@ import numpy as np
 import calendar
 import pandas as pd
 
-def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, show_battery=True):
+def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, vis_config: dict = None):
+    # Default: tampilkan semua chart (perilaku Assignment 1)
+    if vis_config is None:
+        vis_config = {
+            "show_battery_charts":   True,
+            "show_vpp_charts":       True,
+            "show_monthly_analysis": True,
+            "show_row5":             True,
+        }
+    _show_bat = vis_config.get("show_battery_charts", True)
+    _show_vpp = vis_config.get("show_vpp_charts", True)
+    _show_row5 = vis_config.get("show_row5", True)
     DT_HOURS = 5.0 / 60.0
 
     df_calc = df_vis_year.copy()
@@ -207,7 +218,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, show_battery=T
     with c1:
         fig1, ax1 = plt.subplots(figsize=(6.5, 4.2))
         ax1.bar(months_labels, monthly['solar_output_kwh'], color=colors_src[0], label=labels_src[0], width=0.8)
-        if show_battery:
+        if _show_bat:
             ax1.bar(months_labels, monthly['battery_discharge_kwh'], bottom=monthly['solar_output_kwh'], color=colors_src[1], label=labels_src[1], width=0.8)
             ax1.bar(months_labels, monthly['grid_import_kwh'], bottom=monthly['solar_output_kwh']+monthly['battery_discharge_kwh'], color=colors_src[2], label=labels_src[2], width=0.8)
         else:
@@ -237,7 +248,7 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, show_battery=T
     with c2:
         fig2, ax2 = plt.subplots(figsize=(6.5, 4.2))
         ax2.bar(months_labels, monthly_pct['solar_output_kwh'], color=colors_src[0], label=labels_src[0], width=0.8)
-        if show_battery:
+        if _show_bat:
             ax2.bar(months_labels, monthly_pct['battery_discharge_kwh'], bottom=monthly_pct['solar_output_kwh'], color=colors_src[1], label=labels_src[1], width=0.8)
             ax2.bar(months_labels, monthly_pct['grid_import_kwh'], bottom=monthly_pct['solar_output_kwh']+monthly_pct['battery_discharge_kwh'], color=colors_src[2], label=labels_src[2], width=0.8)
         else:
@@ -310,9 +321,8 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, show_battery=T
 
     # ============================================================
     # ROW 5: Monthly Self Consumption, Sufficiency, PV Gen & VPP
-    # (hanya ditampilkan untuk Assignment 1 / show_battery=True)
     # ============================================================
-    if show_battery:
+    if _show_row5:
         fig_ss, ax1_ss = plt.subplots(figsize=(14, 4))
         x_m = np.arange(len(months_labels))
         ax1_ss.plot(x_m, monthly["self_consumption_pct"], marker="o", linewidth=2, label="PV Self-Consumption")

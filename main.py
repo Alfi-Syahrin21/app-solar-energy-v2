@@ -54,7 +54,7 @@ if 'role' not in st.session_state:
 if st.query_params.get("admin") == "true":
     if st.session_state['role'] != 'admin':
         with st.sidebar:
-            st.warning("ðŸ”’ Admin Access Required")
+            st.warning("🔒 Admin Access Required")
             pwd = st.text_input("Enter Password", type="password")
             
             if pwd == st.secrets["admin_password"]: 
@@ -84,10 +84,10 @@ btn_run = False
 if st.session_state['role'] == 'admin':
     
     with st.sidebar:
-        st.header("â˜ï¸ Setup Config Manager")
+        st.header("☁️ Setup Config Manager")
         
-        # â”€â”€ ASSIGNMENT SELECTOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        st.subheader("ðŸ“‹ Assignment Version")
+        # ── ASSIGNMENT SELECTOR ──────────────────────────────────────
+        st.subheader("📋 Assignment Version")
         all_labels = asgn.get_all_labels()
         current_asgn_key   = st.session_state.get('active_assignment', asgn.ASSIGNMENT_1)
         current_asgn_label = asgn.get_label(current_asgn_key)
@@ -119,7 +119,7 @@ if st.session_state['role'] == 'admin':
 
         st.divider()
         
-        st.subheader("ðŸ“‚ Load History Config")
+        st.subheader("📂 Load History Config")
         df_history = cfg.load_config_history(selected_asgn_key)
         
         if not df_history.empty:
@@ -130,30 +130,30 @@ if st.session_state['role'] == 'admin':
                 selected_row = df_history[history_options == selected_history_str].iloc[0]
                 cfg.apply_row_to_session(selected_row)
                 st.session_state['active_config'] = selected_row['Config_Name']
-                st.success("âœ… Config Applied! Rerunning...")
+                st.success("✅ Config Applied! Rerunning...")
                 st.rerun()
         else:
             st.info("No History Config Available.")
             
         st.divider()
         
-        st.subheader("ðŸ’¾ Save Current Config")
+        st.subheader("💾 Save Current Config")
         new_config_name = st.text_input("Config Name (ex: Exam Config 1)")
         
         if st.button("Save Config", type="primary", width="stretch"):
             if new_config_name.strip() == "":
-                st.warning("âš ï¸ Empty Config Name")
+                st.warning("⚠️ Empty Config Name")
             else:
                 with st.spinner("Saving to Database..."):
                     success = cfg.save_config_to_sheets(new_config_name, st.session_state)
                     if success:
                         st.session_state['active_config'] = new_config_name
-                        st.success("âœ… Successfully Saved Config!")
+                        st.success("✅ Successfully Saved Config!")
                         tm.sleep(1)
                         st.rerun()
         st.divider()
 
-    tab_config, tab_tracker = st.tabs(["âš™ï¸ Config Manager", "ðŸ‘¨â€ðŸŽ“ Student Tracker"])
+    tab_config, tab_tracker = st.tabs(["⚙️ Config Manager", "👨‍🎓 Student Tracker"])
 
     
     with tab_config:
@@ -168,7 +168,7 @@ if st.session_state['role'] == 'admin':
         col_dp, col_spec = st.columns([1, 1], gap="medium")
 
         with col_dp:
-            st.subheader("ðŸ“ Data Parameters")
+            st.subheader("📁 Data Parameters")
             col_location, col_tariff = st.columns([1, 1.4])
 
             with col_location:
@@ -177,7 +177,7 @@ if st.session_state['role'] == 'admin':
                     st.error("Database empty!")
                     st.stop()
                     
-                st.info("ðŸŒ Location")
+                st.info("🌍 Location")
                 use_rand_location = st.toggle("Randomize / Fixed Location", key="chk_loc")
                 
                 selected_loc = None
@@ -217,7 +217,7 @@ if st.session_state['role'] == 'admin':
 
                 available_years = loader.get_available_years(selected_loc, selected_point)
                 
-                st.info("ðŸ•’ Duration")
+                st.info("🕒 Duration")
                 if available_years:
                     use_rand_dur = st.toggle("Randomize / Fixed Duration", key="chk_dur")
                     
@@ -268,7 +268,7 @@ if st.session_state['role'] == 'admin':
                     st.warning("No data available for this location!")
                     st.stop()
 
-                st.info("ðŸ  Load Profile")
+                st.info("🏠 Load Profile")
                 use_rand_load = st.toggle("Randomize / Fixed Load Profile", key="chk_load")
                 selected_load_file = None 
                 
@@ -305,10 +305,10 @@ if st.session_state['role'] == 'admin':
 
             with col_tariff:
                 if _show_vpp:
-                    st.info("âš™ï¸ VPP Settings")
+                    st.info("⚙️ VPP Settings")
                     vpp_price = st.number_input("Dispatch Price Threshold (AUD/MWh)", 0, 2000, step=10, key="vpp_threshold")
 
-                st.info("ðŸ’² Tariff")
+                st.info("💲 Tariff")
                 list_scheme = ["Flat", "Time of Use", "Wholesale Price", "Random"]
                 
                 def _sync_scheme():
@@ -332,7 +332,7 @@ if st.session_state['role'] == 'admin':
                 t_utils.initialize_session_state()
 
                 if ui_scheme == "Flat":
-                    st.markdown("**ðŸ’² Set Prices (AUD/kWh)**")
+                    st.markdown("**💲 Set Prices (AUD/kWh)**")
                     c1, c2 = st.columns(2)
                     
                     def _sync_flat_imp(): st.session_state['imp_tariff'] = st.session_state['ui_imp_tariff']
@@ -344,7 +344,7 @@ if st.session_state['role'] == 'admin':
                                     value=float(st.session_state.get('exp_tariff', 0.08)), on_change=_sync_flat_exp)
                 
                 elif ui_scheme == "Time of Use":
-                    st.markdown("**ðŸ•’ Set Time Periods**")
+                    st.markdown("**🕒 Set Time Periods**")
                     
                     def _sync_t_p_start():
                         st.session_state['t_p_start'] = st.session_state['ui_t_p_start']
@@ -380,7 +380,7 @@ if st.session_state['role'] == 'admin':
                     c1.time_input("Start", key="ui_t_s_start", value=st.session_state.get('t_s_start', time(7,0)), on_change=_sync_t_s_start, label_visibility="collapsed")
                     c2.time_input("End", key="ui_t_s_end", value=st.session_state.get('t_s_end', time(19,0)), on_change=_sync_t_s_end, label_visibility="collapsed")
 
-                    st.markdown("**ðŸ’² Set Prices (AUD/kWh)**")
+                    st.markdown("**💲 Set Prices (AUD/kWh)**")
                     cp1, cp2 = st.columns(2)
                     
                     def _sync_pp(): st.session_state['pp'] = st.session_state['ui_pp']
@@ -408,11 +408,11 @@ if st.session_state['role'] == 'admin':
                     st.info("The simulation will randomly select between Flat, Time of Use, or Wholesale Price.\n")
 
         with col_spec:
-            st.subheader("âš™ï¸ System Specifications")
+            st.subheader("⚙️ System Specifications")
             
             col_panel, col_battery = st.columns(2)
             with col_panel:
-                st.info("â˜€ï¸ Solar Panel / Photovoltaics")
+                st.info("☀️ Solar Panel / Photovoltaics")
                 use_rand_solar = st.toggle("Randomize / Fixed Size", key="chk_solar")
                 if not use_rand_solar:
                     sc1, sc2 = st.columns(2)
@@ -426,7 +426,7 @@ if st.session_state['role'] == 'admin':
                 
             with col_battery:
                 if _show_battery:
-                    st.info("ðŸ”‹ Battery")
+                    st.info("🔋 Battery")
                     use_rand_bat = st.toggle("Randomize / Fixed Size", key="chk_bat")
                     if not use_rand_bat:
                         bc1, bc2 = st.columns(2)
@@ -441,7 +441,7 @@ if st.session_state['role'] == 'admin':
                     p_min_soc = range_soc[0] / 100
                     p_max_soc = range_soc[1] / 100
                 else:
-                    st.info("ðŸ”‹ Battery â€” *Not used in this version*")
+                    st.info("🔋 Battery — *Not used in this version*")
 
         st.markdown("---")
         btn_run = st.button("Generate Data", type="primary", width="stretch", key="btn_admin")
@@ -471,7 +471,7 @@ if st.session_state['role'] == 'admin':
                 st.info("There is no Data Available.")
                 return 
                 
-            st.markdown("### ðŸ“‹ Student Generate Tracker")
+            st.markdown("### 📋 Student Generate Tracker")
             
             df_logs = df_logs.sort_values(by="Timestamp", ascending=False).reset_index(drop=True)
             df_logs.index = df_logs.index + 1
@@ -538,7 +538,7 @@ if st.session_state['role'] == 'admin':
                     sel_dict = selected_rows[0]
                     
                 nim_target = sel_dict['Student ID']
-                st.info(f"ðŸ“Œ Selected Data â€” Student ID: **{nim_target}** | Parameter Used: **{sel_dict['Parameter Used']}**")
+                st.info(f"📌 Selected Data — Student ID: **{nim_target}** | Parameter Used: **{sel_dict['Parameter Used']}**")
                 
                 if st.button("Re-generate Data", width="stretch", type="primary", key="btn_regen_tracker"):
                     try:
@@ -569,7 +569,7 @@ if st.session_state['role'] == 'admin':
                             )
                             
                             if df_input_regen is None:
-                                st.error(f"âŒ Dataset Failed to Load! Check Folder 'dataset/{reg}/{pt}'")
+                                st.error(f"❌ Dataset Failed to Load! Check Folder 'dataset/{reg}/{pt}'")
                             else:
                                 col_load_regen = 'load_profile' if 'load_profile' in df_input_regen.columns else 'beban_rumah_kw'
                                 df_input_regen[col_load_regen] = df_input_regen[col_load_regen] * saved_params['load_multiplier']
@@ -627,12 +627,20 @@ if st.session_state['role'] == 'admin':
                                 df_result_regen = calculator.run_simulation(df_input_regen, sim_params, regen_asgn_type)
                                 
                                 df_export = df_result_regen.round(2).rename(columns={
-                                    'irradiance': 'irradiance_W/m^2',
-                                    'temperature': 'temperature_C',
-                                    'load_profile': 'load_kW',
-                                    'price_profile': 'price_AUD/MWh',
-                                    'battery_soc_pct': 'battery_soc_%'
+                                    'irradiance':          'irradiance_W/m^2',
+                                    'temperature':         'temperature_C',
+                                    'load_profile':        'load_kW',
+                                    'price_profile':       'price_AUD/MWh',
+                                    'battery_soc_pct':     'battery_soc_%',
+                                    'battery_soc_kwh':     'battery_soc_kwh',
+                                    'battery_power_ac_kw': 'battery_power_ac_kW',
+                                    'tariff_import_AUD':   'tariff_import_AUD/kWh',
+                                    'tariff_export_AUD':   'tariff_export_AUD/kWh',
+                                    'grid_net_kw':         'grid_net_kW',
                                 })
+                                _out_cols = asgn.get_output_columns(regen_asgn_type)
+                                _out_cols_exist = [c for c in _out_cols if c in df_export.columns]
+                                df_export = df_export[_out_cols_exist]
                                 
                                 st.session_state['regen_csv_data'] = df_export.to_csv(index=False).encode('utf-8')
                                 st.session_state['regen_nim'] = nim_target
@@ -648,45 +656,58 @@ if st.session_state['role'] == 'admin':
                 st.info("Select one of the rows to re-generate the data.")
                 
             if st.session_state.get('regen_csv_data') is not None:
-                st.success(f"âœ… Data has been re-generated!")
+                st.success(f"✅ Data has been re-generated!")
                 
                 used_p = st.session_state['regen_params']
                 t_data = used_p['tariff_data']
 
                 st.divider()
-                st.markdown("### ðŸ“‹ Generated Simulation Info")
+                st.markdown("### 📋 Generated Simulation Info")
                 
+                _regen_asgn_type = st.session_state.get('regen_assignment_type', asgn.ASSIGNMENT_1)
+                _regen_vc        = asgn.get_vis_config(_regen_asgn_type)
+
                 with st.container(border=True):
-                    st.markdown(f"**ðŸ“ Location:** `{used_p['location']}` | **ðŸ—“ï¸ Period:** `{used_p['period']}` | **ðŸ  Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
+                    st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
                     st.divider()
                     
-                    c_sys1, c_sys2, c_sys3 = st.columns(3)
-                    
-                    with c_sys1:
-                        st.markdown("#### â˜€ï¸ Solar PV")
-                        st.markdown(f"""
-                        - Capacity: **{used_p['solar']} kWp**
-                        - PR: **{used_p['solar_pr']}**
-                        - Temp Coeff: **{used_p['solar_temp']}**
-                        """)
-                        
-                    with c_sys2:
-                        st.markdown("#### ðŸ”‹ Battery Storage")
-                        st.markdown(f"""
-                        - Capacity: **{used_p['bat']} kWh**
-                        - Power: **-{used_p['bat_charge_kw']} / +{used_p['bat_discharge_kw']} kW**
-                        - Efficiency: **{int(used_p['bat_eff']*100)}%**
-                        """)
-                        
-                    with c_sys3:
-                        st.markdown("#### âš¡ Control Logic")
-                        st.markdown(f"""
-                        - VPP Threshold: **{used_p['vpp_thresh']} AUD/MWh**
-                        - SoC Limits: **{int(used_p['soc_min']*100)}% - {int(used_p['soc_max']*100)}%**
-                        - Initial SoC: **{int(used_p['bat_soc_init']*100)}%**
-                        """)
+                    if _regen_vc.get("show_battery_charts", True):
+                        c_sys1, c_sys2, c_sys3 = st.columns(3)
+                        with c_sys1:
+                            st.markdown("#### ☀️ Solar PV")
+                            st.markdown(f"""
+                            - Capacity: **{used_p['solar']} kWp**
+                            - PR: **{used_p['solar_pr']}**
+                            - Temp Coeff: **{used_p['solar_temp']}**
+                            """)
+                        with c_sys2:
+                            st.markdown("#### 🔋 Battery Storage")
+                            st.markdown(f"""
+                            - Capacity: **{used_p.get('bat', 'N/A')} kWh**
+                            - Power: **-{used_p.get('bat_charge_kw', 'N/A')} / +{used_p.get('bat_discharge_kw', 'N/A')} kW**
+                            - Efficiency: **{int(used_p.get('bat_eff', 0)*100)}%**
+                            """)
+                        with c_sys3:
+                            st.markdown("#### ⚡ Control Logic")
+                            st.markdown(f"""
+                            - VPP Threshold: **{used_p.get('vpp_thresh', 'N/A')} AUD/MWh**
+                            - SoC Limits: **{int(used_p.get('soc_min', 0)*100)}% - {int(used_p.get('soc_max', 0)*100)}%**
+                            - Initial SoC: **{int(used_p.get('bat_soc_init', 0)*100)}%**
+                            """)
+                    else:
+                        c_sys1, c_sys2 = st.columns(2)
+                        with c_sys1:
+                            st.markdown("#### ☀️ Solar PV")
+                            st.markdown(f"""
+                            - Capacity: **{used_p['solar']} kWp**
+                            - PR: **{used_p['solar_pr']}**
+                            - Temp Coeff: **{used_p['solar_temp']}**
+                            """)
+                        with c_sys2:
+                            st.markdown("#### ℹ️ System Mode")
+                            st.markdown("Solar Only — no battery or VPP in this assignment.")
 
-                with st.expander("ðŸ’² View Applied Tariff Details", expanded=False):
+                with st.expander("💲 View Applied Tariff Details", expanded=False):
                     schema_name = t_data.get('tariff_scheme', "Flat")
 
                     display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
@@ -711,98 +732,100 @@ if st.session_state['role'] == 'admin':
                                 st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
                 
-                with st.expander("âš™ï¸ View Battery Logic Flow", expanded=False):
-                    schema_name = t_data.get('tariff_scheme', "Flat")
-                    display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
-                    
-                    st.markdown(f"**Active Ruleset:** `{display_name}`\n")
-                    
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    if schema_name == "Time of Use":
-                        with col1:
-                            st.markdown("""
-                            **1. Self-Consumption**
-                            - *Status:* Enabled (`Yes`)
-                            - *Conditions:* When time falls within **Peak** or **Shoulder** periods, there is a solar deficit, and battery has capacity above minimum SoC.
-                            """)
-                        with col2:
-                            st.markdown("""
-                            **2. Charge from Grid**
-                            - *Status:* Enabled (`Yes`)
-                            - *Conditions:* During **Off-peak** period, if battery SoC drops **below 30%**.
-                            - *Limit:* Automatically stops at exactly **30%** SoC.
-                            """)
-                        with col3:
-                            st.markdown("""
-                            **3. Hold Scenarios**
-                            - *Status:* Active *(Standby/Idle)*
-                            - *Conditions:* Solar alone can supply the load, OR during **Off-peak** periods when battery is capped at **30%**.
-                            """)
-                        with col4:
-                            st.markdown(f"""
-                            **4. VPP Dispatch Override**
-                            - *Status:* Emergency Override
-                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                            """)
-                            
-                    elif schema_name == "Wholesale Price":
-                        with col1:
-                            st.markdown("""
-                            **1. Self-Consumption**
-                            - *Status:* Enabled (`Yes`)
-                            - *Conditions:* When **Export Tariff** exceeds **10 c/kWh**, there is a solar deficit, and battery has capacity above minimum SoC.
-                            """)
-                        with col2:
-                            st.markdown("""
-                            **2. Charge from Grid**
-                            - *Status:* Enabled (`Yes`)
-                            - *Conditions:* When **Export Tariff** drops below **5 c/kWh**, battery SoC is **below 30%**, and no excess solar.
-                            - *Limit:* Automatically stops at exactly **30%** SoC.
-                            """)
-                        with col3:
-                            st.markdown("""
-                            **3. Hold Scenarios**
-                            - *Status:* Active *(Standby/Idle)*
-                            - *Conditions:* Solar alone can supply the load, Mid-Price Zone (**5 - 10 c/kWh** of **Export Tariff**), OR Low **Export Tariff** (**< 5 c/kWh**) when battery is capped at **30%**.
-                            """)
-                        with col4:
-                            st.markdown(f"""
-                            **4. VPP Override**
-                            - *Status:* Emergency Override
-                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                            """)
-                            
-                    else: # Flat
-                        with col1:
-                            st.markdown("""
-                            **1. Self-Consumption**
-                            - *Status:* Enabled (`Yes`)
-                            - *Conditions:* Whenever load needs supply (solar deficit) and battery has capacity above minimum SoC.
-                            """)
-                        with col2:
-                            st.markdown("""
-                            **2. Charge from Grid**
-                            - *Status:* Disabled (`No`)
-                            - *Conditions:* Battery will never charge from the grid under normal baseline operations.
-                            """)
-                        with col3:
-                            st.markdown("""
-                            **3. Hold Scenarios**
-                            - *Status:* Active *(Standby/Idle)*
-                            - *Conditions:* Solar alone is completely sufficient to cover the household load.
-                            """)
-                        with col4:
-                            st.markdown(f"""
-                            **4. VPP Dispatch Override**
-                            - *Status:* Emergency Override
-                            - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p['vpp_thresh']} AUD/MWh**).
-                            - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
-                            """)
-                
-                st.markdown("### ðŸ’¾ Export Data")
+                if _regen_vc.get("show_battery_logic", True):
+                    with st.expander("⚙️ View Battery Logic Flow", expanded=False):
+                        schema_name = t_data.get('tariff_scheme', "Flat")
+                        display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
+                        
+                        st.markdown(f"**Active Ruleset:** `{display_name}`\n")
+                        
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        if schema_name == "Time of Use":
+                            with col1:
+                                st.markdown("""
+                                **1. Self-Consumption**
+                                - *Status:* Enabled (`Yes`)
+                                - *Conditions:* When time falls within **Peak** or **Shoulder** periods, there is a solar deficit, and battery has capacity above minimum SoC.
+                                """)
+                            with col2:
+                                st.markdown("""
+                                **2. Charge from Grid**
+                                - *Status:* Enabled (`Yes`)
+                                - *Conditions:* During **Off-peak** period, if battery SoC drops **below 30%**.
+                                - *Limit:* Automatically stops at exactly **30%** SoC.
+                                """)
+                            with col3:
+                                st.markdown("""
+                                **3. Hold Scenarios**
+                                - *Status:* Active *(Standby/Idle)*
+                                - *Conditions:* Solar alone can supply the load, OR during **Off-peak** periods when battery is capped at **30%**.
+                                """)
+                            with col4:
+                                st.markdown(f"""
+                                **4. VPP Dispatch Override**
+                                - *Status:* Emergency Override
+                                - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh','N/A')} AUD/MWh**).
+                                - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                                """)
+                                
+                        elif schema_name == "Wholesale Price":
+                            with col1:
+                                st.markdown("""
+                                **1. Self-Consumption**
+                                - *Status:* Enabled (`Yes`)
+                                - *Conditions:* When **Export Tariff** exceeds **10 c/kWh**, there is a solar deficit, and battery has capacity above minimum SoC.
+                                """)
+                            with col2:
+                                st.markdown("""
+                                **2. Charge from Grid**
+                                - *Status:* Enabled (`Yes`)
+                                - *Conditions:* When **Export Tariff** drops below **5 c/kWh**, battery SoC is **below 30%**, and no excess solar.
+                                - *Limit:* Automatically stops at exactly **30%** SoC.
+                                """)
+                            with col3:
+                                st.markdown("""
+                                **3. Hold Scenarios**
+                                - *Status:* Active *(Standby/Idle)*
+                                - *Conditions:* Solar alone can supply the load, Mid-Price Zone (**5 - 10 c/kWh** of **Export Tariff**), OR Low **Export Tariff** (**< 5 c/kWh**) when battery is capped at **30%**.
+                                """)
+                            with col4:
+                                st.markdown(f"""
+                                **4. VPP Override**
+                                - *Status:* Emergency Override
+                                - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh','N/A')} AUD/MWh**).
+                                - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                                """)
+                                
+                        else: # Flat
+                            with col1:
+                                st.markdown("""
+                                **1. Self-Consumption**
+                                - *Status:* Enabled (`Yes`)
+                                - *Conditions:* Whenever load needs supply (solar deficit) and battery has capacity above minimum SoC.
+                                """)
+                            with col2:
+                                st.markdown("""
+                                **2. Charge from Grid**
+                                - *Status:* Disabled (`No`)
+                                - *Conditions:* Battery will never charge from the grid under normal baseline operations.
+                                """)
+                            with col3:
+                                st.markdown("""
+                                **3. Hold Scenarios**
+                                - *Status:* Active *(Standby/Idle)*
+                                - *Conditions:* Solar alone is completely sufficient to cover the household load.
+                                """)
+                            with col4:
+                                st.markdown(f"""
+                                **4. VPP Dispatch Override**
+                                - *Status:* Emergency Override
+                                - *Force Discharge:* **Spot Market Price** hits VPP Threshold (**{used_p.get('vpp_thresh','N/A')} AUD/MWh**).
+                                - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
+                                """)
+
+
+                st.markdown("### 💾 Export Data")
                 st.download_button(
                     label=f"Download Dataset (CSV)",
                     data=st.session_state['regen_csv_data'],
@@ -813,7 +836,7 @@ if st.session_state['role'] == 'admin':
 
                 if 'regen_df_result' in st.session_state and st.session_state['regen_df_result'] is not None:
                     st.divider()
-                    st.subheader("ðŸ“Š Detailed Analysis (Re-generated Data)")
+                    st.subheader("📊 Detailed Analysis (Re-generated Data)")
                     
                     df_regen_res = st.session_state['regen_df_result'].copy()
                     df_regen_res['year']  = df_regen_res['timestamp'].dt.year
@@ -830,38 +853,42 @@ if st.session_state['role'] == 'admin':
                     
                     total_solar_regen = df_vis_year_regen['solar_output_kw'].sum() * factor
                     total_load_regen  = df_vis_year_regen[col_load_regen].sum() * factor
-                    total_import_regen = df_vis_year_regen['grid_net_kw'].apply(lambda x: x if x > 0 else 0).sum() * factor
-                    
-                    m1_r, m2_r, m3_r = st.columns(3)
-                    m1_r.metric(f"Total Solar ({selected_vis_year_regen})", f"{total_solar_regen:,.2f} kWh")
-                    m2_r.metric(f"Total Load ({selected_vis_year_regen})", f"{total_load_regen:,.2f} kWh")
-                    m3_r.metric(f"Grid Import ({selected_vis_year_regen})", f"{total_import_regen:,.2f} kWh", delta_color="inverse")
+                    if _regen_vc.get("show_grid_metric", True) and 'grid_net_kw' in df_vis_year_regen.columns:
+                        total_import_regen = df_vis_year_regen['grid_net_kw'].apply(lambda x: x if x > 0 else 0).sum() * factor
+                        m1_r, m2_r, m3_r = st.columns(3)
+                        m1_r.metric(f"Total Solar ({selected_vis_year_regen})", f"{total_solar_regen:,.2f} kWh")
+                        m2_r.metric(f"Total Load ({selected_vis_year_regen})", f"{total_load_regen:,.2f} kWh")
+                        m3_r.metric(f"Grid Import ({selected_vis_year_regen})", f"{total_import_regen:,.2f} kWh", delta_color="inverse")
+                    else:
+                        m1_r, m2_r = st.columns(2)
+                        m1_r.metric(f"Total Solar ({selected_vis_year_regen})", f"{total_solar_regen:,.2f} kWh")
+                        m2_r.metric(f"Total Load ({selected_vis_year_regen})", f"{total_load_regen:,.2f} kWh")
 
-                    visualizer.plot_annual_overview(df_vis_year_regen, col_bat_regen, selected_vis_year_regen)
+                    visualizer.plot_annual_overview(df_vis_year_regen, col_bat_regen, selected_vis_year_regen, vis_config=_regen_vc)
                     
                     st.divider()
 
-                    available_months_regen = sorted(df_vis_year_regen['month'].unique())
-                    month_map_regen = {m: calendar.month_name[m] for m in available_months_regen}
-                    
-                    selected_month_name_regen = st.selectbox(
-                        "Select Month for Profile (Re-generated):", 
-                        list(month_map_regen.values()), 
-                        key="sb_month_regen"
-                    )
-                    
-                    selected_vis_month_regen = [k for k, v in month_map_regen.items() if v == selected_month_name_regen][0]
-                    df_vis_month_regen = df_vis_year_regen[df_vis_year_regen['month'] == selected_vis_month_regen].copy()
-                    
-                    visualizer.plot_monthly_analysis(df_vis_month_regen, col_load_regen, selected_month_name_regen, selected_vis_year_regen)
+                    if _regen_vc.get("show_monthly_analysis", True):
+                        available_months_regen = sorted(df_vis_year_regen['month'].unique())
+                        month_map_regen = {m: calendar.month_name[m] for m in available_months_regen}
+                        
+                        selected_month_name_regen = st.selectbox(
+                            "Select Month for Profile (Re-generated):", 
+                            list(month_map_regen.values()), 
+                            key="sb_month_regen"
+                        )
+                        
+                        selected_vis_month_regen = [k for k, v in month_map_regen.items() if v == selected_month_name_regen][0]
+                        df_vis_month_regen = df_vis_year_regen[df_vis_year_regen['month'] == selected_vis_month_regen].copy()
+                        visualizer.plot_monthly_analysis(df_vis_month_regen, col_load_regen, selected_month_name_regen, selected_vis_year_regen)
                 
         tracker_ui()
 
 else:
     active_cfg = st.session_state.get('active_config', 'Default')
-    st.info(f"ðŸ‘‹ **Welcome!**  \n\nSelect your assignment and enter your Student ID to generate your dataset.")
+    st.info(f"👋 **Welcome!**  \n\nSelect your assignment and enter your Student ID to generate your dataset.")
 
-    # â”€â”€ ASSIGNMENT SELECTOR (Student) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── ASSIGNMENT SELECTOR (Student) ──────────────────────────────
     student_asgn_labels = asgn.get_all_labels()
     current_student_asgn_key   = st.session_state.get('active_assignment', asgn.ASSIGNMENT_1)
     current_student_asgn_label = asgn.get_label(current_student_asgn_key)
@@ -891,7 +918,7 @@ if btn_run:
 
     if st.session_state['role'] == 'student':
         if not st.session_state.get('current_nim'):
-            st.warning("âš ï¸ Please Enter Your Student ID!")
+            st.warning("⚠️ Please Enter Your Student ID!")
             st.stop()
 
         df_hist = cfg.load_config_history(active_asgn_type)
@@ -1003,7 +1030,7 @@ if btn_run:
             final_load_file = random.choice(all_files)
             final_load_mult = round(random.uniform(8.0, 32.0), 1)
         else:
-            st.error("âŒ No load profile files found!")
+            st.error("❌ No load profile files found!")
             st.stop()
 
     # --- KALKULASI SOLAR ---
@@ -1082,7 +1109,7 @@ if btn_run:
         else:
             auto_charge_power = 15.0
 
-    st.toast(f"ðŸ“„ Load Profile: {final_load_file}")
+    st.toast(f"📄 Load Profile: {final_load_file}")
     with st.spinner(f"Combining data for {selected_loc} ({selected_point}) from {final_start_y}-{final_end_y}..."):
         df_input = loader.load_and_merge_data(
             selected_loc, 
@@ -1202,37 +1229,37 @@ if st.session_state['hasil_simulasi'] is not None:
         t_data = used_p['tariff_data']
 
         st.divider()
-        st.markdown("### ðŸ“‹ Generated Simulation Info")
+        st.markdown("### 📋 Generated Simulation Info")
         
         with st.container(border=True):
             pr_pct = f"{int(used_p['solar_pr'] * 100)}%"
-            temp_val = f"{used_p['solar_temp']} / Â°C"
+            temp_val = f"{used_p['solar_temp']} / °C"
             _res_asgn = used_p.get('assignment_type', asgn.ASSIGNMENT_1)
             _res_vc   = asgn.get_vis_config(_res_asgn)
             
             if st.session_state.get('role', 'student') == 'admin':
-                st.markdown(f"**ðŸ“ Location:** `{used_p['location']}` | **ðŸ—“ï¸ Period:** `{used_p['period']}` | **ðŸ  Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
+                st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})**")
                 
                 st.divider()
                 
                 if _res_vc.get("show_battery_charts", True):
                     c_sys1, c_sys2, c_sys3 = st.columns(3)
                     with c_sys1:
-                        st.markdown("#### â˜€ï¸ Solar PV")
+                        st.markdown("#### ☀️ Solar PV")
                         st.markdown(f"""
                         - Capacity: **{used_p['solar']} kWp**
                         - PR: **{pr_pct}**
                         - Temp Coeff: **{temp_val}**
                         """)
                     with c_sys2:
-                        st.markdown("#### ðŸ”‹ Battery Storage")
+                        st.markdown("#### 🔋 Battery Storage")
                         st.markdown(f"""
                         - Capacity: **{used_p.get('bat', 'N/A')} kWh**
                         - Power: **-{used_p.get('bat_charge_kw', 'N/A')} / +{used_p.get('bat_discharge_kw', 'N/A')} kW**
                         - Efficiency: **{int(used_p.get('bat_eff', 0)*100)}%**
                         """)
                     with c_sys3:
-                        st.markdown("#### âš¡ Control Logic")
+                        st.markdown("#### ⚡ Control Logic")
                         st.markdown(f"""
                         - VPP Threshold: **{used_p.get('vpp_thresh', 'N/A')} AUD/MWh**
                         - SoC Limits: **{int(used_p.get('soc_min', 0)*100)}% - {int(used_p.get('soc_max', 0)*100)}%**
@@ -1241,20 +1268,20 @@ if st.session_state['hasil_simulasi'] is not None:
                 else:
                     c_sys1, c_sys2 = st.columns(2)
                     with c_sys1:
-                        st.markdown("#### â˜€ï¸ Solar PV")
+                        st.markdown("#### ☀️ Solar PV")
                         st.markdown(f"""
                         - Capacity: **{used_p['solar']} kWp**
                         - PR: **{pr_pct}**
                         - Temp Coeff: **{temp_val}**
                         """)
                     with c_sys2:
-                        st.markdown("#### â„¹ï¸ System Mode")
-                        st.markdown("Solar Only â€” no battery or VPP in this version.")
+                        st.markdown("#### ℹ️ System Mode")
+                        st.markdown("Solar Only — no battery or VPP in this version.")
             else:
-                st.markdown(f"**ðŸ“ Location:** `{used_p['location']}` | **ðŸ—“ï¸ Period:** `{used_p['period']}` | **ðŸ  Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})** | **â˜€ï¸ Solar PV:** PR `{pr_pct}` | Temp Coeff `{temp_val}`")
+                st.markdown(f"**📍 Location:** `{used_p['location']}` | **🗓️ Period:** `{used_p['period']}` | **🏠 Load:** `{used_p['load_source']}` **(x {used_p.get('load_multiplier', 1.0)})** | **☀️ Solar PV:** PR `{pr_pct}` | Temp Coeff `{temp_val}`")
 
 
-        with st.expander("ðŸ’² View Applied Tariff Details", expanded=False):
+        with st.expander("💲 View Applied Tariff Details", expanded=False):
             schema_name = t_data.get('tariff_scheme', "Flat")
 
             display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
@@ -1279,10 +1306,10 @@ if st.session_state['hasil_simulasi'] is not None:
                         st.markdown(f"Flat Rate: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
 
         if st.session_state.get('role', 'student') == 'admin':
-            # Battery Logic Flow â€” hanya untuk Assignment 1
+            # Battery Logic Flow — hanya untuk Assignment 1
             _bat_logic_asgn = st.session_state.get('active_assignment', asgn.ASSIGNMENT_1)
             if asgn.get_vis_config(_bat_logic_asgn).get("show_battery_logic", True):
-                with st.expander("âš™ï¸ View Battery Logic Flow", expanded=False):
+                with st.expander("⚙️ View Battery Logic Flow", expanded=False):
                     schema_name = t_data.get('tariff_scheme', "Flat")
                     display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
                     
@@ -1373,11 +1400,11 @@ if st.session_state['hasil_simulasi'] is not None:
                             - *Force Charge:* **Spot Market Price** goes negative (**< 0 AUD/MWh**).
                             """)
 
-        st.markdown("### ðŸ’¾ Export Data")
+        st.markdown("### 💾 Export Data")
         
         df_export = df_result.copy()
 
-        # Rename kolom internal â†’ nama kolom output CSV
+        # Rename kolom internal → nama kolom output CSV
         df_export = df_export.rename(columns={
             'irradiance':           'irradiance_W/m^2',
             'temperature':          'temperature_C',
@@ -1413,7 +1440,7 @@ if st.session_state['hasil_simulasi'] is not None:
 
         if st.session_state.get('role', 'student') == 'admin':
             st.divider()
-            st.subheader("ðŸ“Š Detailed Analysis")
+            st.subheader("📊 Detailed Analysis")
             
             _vis_asgn = st.session_state.get('active_assignment', asgn.ASSIGNMENT_1)
             _vis_vc   = asgn.get_vis_config(_vis_asgn)
@@ -1447,7 +1474,7 @@ if st.session_state['hasil_simulasi'] is not None:
             
             st.divider()
 
-            # Monthly Analysis â€” dikontrol via vis_config["show_monthly_analysis"]
+            # Monthly Analysis — dikontrol via vis_config["show_monthly_analysis"]
             if _vis_vc.get("show_monthly_analysis", True):
                 @st.fragment
                 def show_monthly_analysis_fragment():

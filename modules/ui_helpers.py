@@ -28,15 +28,15 @@ def _render_sim_info(used_p: dict, vc: dict, role: str) -> None:
     temp_val = f"{used_p.get('solar_temp', 'N/A')} / °C"
 
     with st.container(border=True):
-        st.markdown(
-            f"**📍 Location:** `{used_p.get('location','N/A')}` | "
-            f"**🗓️ Period:** `{used_p.get('period','N/A')}` | "
-            f"**🏠 Load:** `{used_p.get('load_source','N/A')}` "
-            f"**(x {used_p.get('load_multiplier', 1.0)})**"
-        )
-        st.divider()
-
         if role == 'admin':
+            st.markdown(
+                f"**📍 Location:** `{used_p.get('location','N/A')}` | "
+                f"**🗓️ Period:** `{used_p.get('period','N/A')}` | "
+                f"**🏠 Load:** `{used_p.get('load_source','N/A')}` "
+                f"**(x {used_p.get('load_multiplier', 1.0)})**"
+            )
+            st.divider()
+
             if vc.get("show_battery_charts", True):
                 c1, c2, c3 = st.columns(3)
                 with c1:

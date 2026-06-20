@@ -46,6 +46,7 @@ if 'app_initialized' not in st.session_state:
 
 if 'hasil_simulasi' not in st.session_state:
     st.session_state['hasil_simulasi'] = None
+    st.session_state['gen_csv_data']   = None
     st.session_state['used_params'] = {}
     st.session_state['info_simulasi'] = ""
 
@@ -106,6 +107,7 @@ if st.session_state['role'] == 'admin':
         if selected_asgn_key != st.session_state.get('active_assignment'):
             st.session_state['active_assignment'] = selected_asgn_key
             st.session_state['hasil_simulasi'] = None  # reset hasil lama
+            st.session_state['gen_csv_data']   = None  # reset CSV bytes lama
             latest_row = cfg.get_latest_config_for_assignment(selected_asgn_key)
             if latest_row is not None:
                 cfg.apply_row_to_session(latest_row)
@@ -959,6 +961,28 @@ if btn_run:
         
         st.session_state['hasil_simulasi'] = df_result
         st.session_state['info_simulasi'] = f"{selected_loc}_{selected_point}_{final_start_y}-{final_end_y}"
+
+        # Buat CSV bytes sekali di sini, simpan ke session_state
+        # agar tidak di-rebuild tiap rerender (tiap interaksi widget)
+        _asgn_for_csv = active_asgn_type
+        _df_csv = df_result.copy().rename(columns={
+            'irradiance':          'irradiance_W/m^2',
+            'temperature':         'temperature_C',
+            'load_profile':        'load_kW',
+            'price_profile':       'price_AUD/MWh',
+            'battery_soc_pct':     'battery_soc_%',
+            'battery_power_ac_kw': 'battery_power_ac_kW',
+            'tariff_import_AUD':   'tariff_import_AUD/kWh',
+            'tariff_export_AUD':   'tariff_export_AUD/kWh',
+            'grid_net_kw':         'grid_net_kW',
+        })
+        for _c in ['tariff_import_AUD/kWh', 'tariff_export_AUD/kWh']:
+            if _c in _df_csv.columns:
+                _df_csv[_c] = _df_csv[_c].round(5)
+        _desired = asgn.get_output_columns(_asgn_for_csv)
+        _df_csv  = _df_csv[[c for c in _desired if c in _df_csv.columns]]
+        st.session_state['gen_csv_data'] = _df_csv.to_csv(index=False).encode('utf-8')
+        del _df_csv
         
         # Susun Snapshot Tarif
         tariff_snapshot = {'tariff_scheme': tariff_scheme}
@@ -1019,31 +1043,13 @@ if btn_run:
 if st.session_state['hasil_simulasi'] is not None:
 
     with res_container:
-        df_result = st.session_state['hasil_simulasi']
+        df_result      = st.session_state['hasil_simulasi']
         file_name_info = st.session_state['info_simulasi']
-        used_p = st.session_state['used_params']
+        used_p         = st.session_state['used_params']
+        csv_bytes      = st.session_state.get('gen_csv_data', b'')
 
         _gen_asgn = used_p.get('assignment_type', asgn.ASSIGNMENT_1)
         _gen_vc   = asgn.get_vis_config(_gen_asgn)
-
-        # Buat CSV bytes dengan rename + filter kolom sesuai assignment
-        df_export = df_result.copy().rename(columns={
-            'irradiance':          'irradiance_W/m^2',
-            'temperature':         'temperature_C',
-            'load_profile':        'load_kW',
-            'price_profile':       'price_AUD/MWh',
-            'battery_soc_pct':     'battery_soc_%',
-            'battery_power_ac_kw': 'battery_power_ac_kW',
-            'tariff_import_AUD':   'tariff_import_AUD/kWh',
-            'tariff_export_AUD':   'tariff_export_AUD/kWh',
-            'grid_net_kw':         'grid_net_kW',
-        })
-        for c in ['tariff_import_AUD/kWh', 'tariff_export_AUD/kWh']:
-            if c in df_export.columns:
-                df_export[c] = df_export[c].round(5)
-        desired_cols = asgn.get_output_columns(_gen_asgn)
-        df_export    = df_export[[c for c in desired_cols if c in df_export.columns]]
-        csv_bytes    = df_export.to_csv(index=False).encode('utf-8')
 
         ui_h.render_result_panel(
             df_result         = df_result,

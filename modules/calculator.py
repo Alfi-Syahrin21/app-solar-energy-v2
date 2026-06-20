@@ -7,7 +7,7 @@ MODE_CHARGE   = 1
 MODE_DISCHARGE= 2 
 MODE_PEAK     = 3  
 
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def simulate_battery_numba(
     net_load_arr,      
     spot_price_arr,       
@@ -153,7 +153,7 @@ def simulate_battery_numba(
 # =====================================================================
 # FUNGSI NUMBA UNTUK EXTRA IMPORT VPP 
 # =====================================================================
-@jit(nopython=True)
+@jit(nopython=True, cache=True)
 def calculate_extra_import_numba(vpp_discharge_arr, bat_power_arr, grid_net_arr, soc_kwh_arr, dt_hours):
     n_rows = len(grid_net_arr)
     arr_extra_import = np.zeros(n_rows)

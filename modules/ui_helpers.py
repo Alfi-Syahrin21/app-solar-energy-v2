@@ -245,16 +245,20 @@ def _render_analysis(df_result, vc: dict, year_selectbox_key: str, month_selectb
     st.divider()
 
     if vc.get("show_monthly_analysis", True):
-        available_months = sorted(df_year['month'].unique())
-        month_map        = {m: calendar.month_name[m] for m in available_months}
+        @st.fragment
+        def _monthly_fragment():
+            available_months = sorted(df_year['month'].unique())
+            month_map        = {m: calendar.month_name[m] for m in available_months}
 
-        selected_month_name = st.selectbox(
-            "Select Month for Profile:", list(month_map.values()), key=month_selectbox_key
-        )
-        selected_month = [k for k, v in month_map.items() if v == selected_month_name][0]
-        df_month       = df_year[df_year['month'] == selected_month].copy()
+            selected_month_name = st.selectbox(
+                "Select Month for Profile:", list(month_map.values()), key=month_selectbox_key
+            )
+            selected_month = [k for k, v in month_map.items() if v == selected_month_name][0]
+            df_month       = df_year[df_year['month'] == selected_month].copy()
 
-        visualizer.plot_monthly_analysis(df_month, col_load, selected_month_name, selected_year)
+            visualizer.plot_monthly_analysis(df_month, col_load, selected_month_name, selected_year)
+
+        _monthly_fragment()
 
 
 def render_result_panel(

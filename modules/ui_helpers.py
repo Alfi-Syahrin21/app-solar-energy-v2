@@ -222,43 +222,47 @@ def _render_analysis(df_result, vc: dict, year_selectbox_key: str, month_selectb
     col_load = 'load_profile' if 'load_profile' in df.columns else 'beban_rumah_kw'
     col_bat  = 'battery_power_ac_kw' if 'battery_power_ac_kw' in df.columns else 'battery_power_kw'
 
-    available_years = sorted(df['year'].unique())
-    selected_year   = st.selectbox("Select Year:", available_years, key=year_selectbox_key)
-    df_year         = df[df['year'] == selected_year].copy()
+    @st.fragment
+    def _analysis_fragment():
+        available_years = sorted(df['year'].unique())
+        selected_year   = st.selectbox("Select Year:", available_years, key=year_selectbox_key)
+        df_year         = df[df['year'] == selected_year].copy()
 
-    total_solar = df_year['solar_output_kw'].sum() * DT_HOURS
-    total_load  = df_year[col_load].sum() * DT_HOURS
+        total_solar = df_year['solar_output_kw'].sum() * DT_HOURS
+        total_load  = df_year[col_load].sum() * DT_HOURS
 
-    if vc.get("show_grid_metric", True) and 'grid_net_kw' in df_year.columns:
-        total_import = df_year['grid_net_kw'].apply(lambda x: x if x > 0 else 0).sum() * DT_HOURS
-        m1, m2, m3 = st.columns(3)
-        m1.metric(f"Total Solar ({selected_year})", f"{total_solar:,.2f} kWh")
-        m2.metric(f"Total Load ({selected_year})",  f"{total_load:,.2f} kWh")
-        m3.metric(f"Grid Import ({selected_year})", f"{total_import:,.2f} kWh", delta_color="inverse")
-    else:
-        m1, m2 = st.columns(2)
-        m1.metric(f"Total Solar ({selected_year})", f"{total_solar:,.2f} kWh")
-        m2.metric(f"Total Load ({selected_year})",  f"{total_load:,.2f} kWh")
+        if vc.get("show_grid_metric", True) and 'grid_net_kw' in df_year.columns:
+            total_import = df_year['grid_net_kw'].clip(lower=0).sum() * DT_HOURS
+            m1, m2, m3 = st.columns(3)
+            m1.metric(f"Total Solar ({selected_year})", f"{total_solar:,.2f} kWh")
+            m2.metric(f"Total Load ({selected_year})",  f"{total_load:,.2f} kWh")
+            m3.metric(f"Grid Import ({selected_year})", f"{total_import:,.2f} kWh", delta_color="inverse")
+        else:
+            m1, m2 = st.columns(2)
+            m1.metric(f"Total Solar ({selected_year})", f"{total_solar:,.2f} kWh")
+            m2.metric(f"Total Load ({selected_year})",  f"{total_load:,.2f} kWh")
 
-    visualizer.plot_annual_overview(df_year, col_bat, selected_year, vis_config=vc)
+        visualizer.plot_annual_overview(df_year, col_bat, selected_year, vis_config=vc)
 
-    st.divider()
+        st.divider()
 
-    if vc.get("show_monthly_analysis", True):
-        @st.fragment
-        def _monthly_fragment():
-            available_months = sorted(df_year['month'].unique())
-            month_map        = {m: calendar.month_name[m] for m in available_months}
+        if vc.get("show_monthly_analysis", True):
+            @st.fragment
+            def _monthly_fragment():
+                available_months = sorted(df_year['month'].unique())
+                month_map        = {m: calendar.month_name[m] for m in available_months}
 
-            selected_month_name = st.selectbox(
-                "Select Month for Profile:", list(month_map.values()), key=month_selectbox_key
-            )
-            selected_month = [k for k, v in month_map.items() if v == selected_month_name][0]
-            df_month       = df_year[df_year['month'] == selected_month].copy()
+                selected_month_name = st.selectbox(
+                    "Select Month for Profile:", list(month_map.values()), key=month_selectbox_key
+                )
+                selected_month = [k for k, v in month_map.items() if v == selected_month_name][0]
+                df_month       = df_year[df_year['month'] == selected_month].copy()
 
-            visualizer.plot_monthly_analysis(df_month, col_load, selected_month_name, selected_year)
+                visualizer.plot_monthly_analysis(df_month, col_load, selected_month_name, selected_year)
 
-        _monthly_fragment()
+            _monthly_fragment()
+
+    _analysis_fragment()
 
 
 def render_result_panel(

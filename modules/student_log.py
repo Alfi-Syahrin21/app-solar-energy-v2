@@ -34,7 +34,7 @@ def save_log_to_sheets(nim, config_name, used_params_dict, assignment_type="assi
         
         supabase.table(TAB_LOGS).insert(new_row).execute()
         
-        st.cache_data.clear()
+        get_student_logs.clear()
         return True
     except Exception as e:
         st.error(f"⚠️ Gagal menyimpan Log Mahasiswa ke Supabase: {e}")

@@ -215,18 +215,20 @@ def _render_battery_logic(used_p: dict, vc: dict, t_data: dict) -> None:
 
 def _render_analysis(df_result, vc: dict, year_selectbox_key: str, month_selectbox_key: str) -> None:
     """Render Detailed Analysis section: metrics, annual overview, monthly profile."""
-    df = df_result.copy()
-    df['year']  = df['timestamp'].dt.year
-    df['month'] = df['timestamp'].dt.month
+    ts       = df_result['timestamp']
+    yr_arr   = ts.dt.year
+    mo_arr   = ts.dt.month
 
-    col_load = 'load_profile' if 'load_profile' in df.columns else 'beban_rumah_kw'
-    col_bat  = 'battery_power_ac_kw' if 'battery_power_ac_kw' in df.columns else 'battery_power_kw'
+    col_load = 'load_profile' if 'load_profile' in df_result.columns else 'beban_rumah_kw'
+    col_bat  = 'battery_power_ac_kw' if 'battery_power_ac_kw' in df_result.columns else 'battery_power_kw'
 
     @st.fragment
     def _analysis_fragment():
-        available_years = sorted(df['year'].unique())
+        available_years = sorted(yr_arr.unique())
         selected_year   = st.selectbox("Select Year:", available_years, key=year_selectbox_key)
-        df_year         = df[df['year'] == selected_year].copy()
+
+        mask_year = yr_arr == selected_year
+        df_year   = df_result[mask_year] 
 
         total_solar = df_year['solar_output_kw'].sum() * DT_HOURS
         total_load  = df_year[col_load].sum() * DT_HOURS
@@ -247,16 +249,18 @@ def _render_analysis(df_result, vc: dict, year_selectbox_key: str, month_selectb
         st.divider()
 
         if vc.get("show_monthly_analysis", True):
+            mo_arr_year = mo_arr[mask_year]
+
             @st.fragment
             def _monthly_fragment():
-                available_months = sorted(df_year['month'].unique())
+                available_months = sorted(mo_arr_year.unique())
                 month_map        = {m: calendar.month_name[m] for m in available_months}
 
                 selected_month_name = st.selectbox(
                     "Select Month for Profile:", list(month_map.values()), key=month_selectbox_key
                 )
                 selected_month = [k for k, v in month_map.items() if v == selected_month_name][0]
-                df_month       = df_year[df_year['month'] == selected_month].copy()
+                df_month = df_year[mo_arr_year == selected_month]
 
                 visualizer.plot_monthly_analysis(df_month, col_load, selected_month_name, selected_year)
 

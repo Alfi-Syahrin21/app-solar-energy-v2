@@ -20,12 +20,14 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, vis_config: di
     _show_row5 = vis_config.get("show_row5", True)
     DT_HOURS = 5.0 / 60.0
 
-    df_calc = df_vis_year.copy()
-    col_load = 'load_profile' if 'load_profile' in df_calc.columns else 'beban_rumah_kw'
+    col_load = 'load_profile' if 'load_profile' in df_vis_year.columns else 'beban_rumah_kw'
 
-    if not isinstance(df_calc.index, pd.DatetimeIndex):
-        df_calc = df_calc.set_index('timestamp')
+    if not isinstance(df_vis_year.index, pd.DatetimeIndex):
+        df_calc = df_vis_year.set_index('timestamp')
+    else:
+        df_calc = df_vis_year
 
+    df_calc = df_calc.copy()
     df_calc["month"] = df_calc.index.month
     df_calc["hour"]  = df_calc.index.hour
 
@@ -104,17 +106,22 @@ def plot_annual_overview(df_vis_year, col_bat, selected_vis_year, vis_config: di
 
     months_labels = [d.strftime("%b") for d in monthly.index]
 
-    df_hm = df_calc.copy()
-    df_hm['_month'] = df_hm.index.month
-    df_hm['_hour']  = df_hm.index.hour
-    if 'vpp_discharge_hours_raw' in df_hm.columns:
-        heatmap_vpp = df_hm.pivot_table(index='_month', columns='_hour', values='vpp_discharge_hours_raw', aggfunc='sum') \
-                           .reindex(index=range(1, 13), columns=range(24)).fillna(0)
+    _hm_month = df_calc.index.month
+    _hm_hour  = df_calc.index.hour
+    if 'vpp_discharge_hours_raw' in df_calc.columns:
+        heatmap_vpp = pd.pivot_table(
+            df_calc.assign(_month=_hm_month, _hour=_hm_hour),
+            index='_month', columns='_hour',
+            values='vpp_discharge_hours_raw', aggfunc='sum'
+        ).reindex(index=range(1, 13), columns=range(24)).fillna(0)
     else:
         heatmap_vpp = pd.DataFrame(0, index=range(1, 13), columns=range(24))
-    if 'extra_import_kwh_raw' in df_hm.columns:
-        heatmap_imp = df_hm.pivot_table(index='_month', columns='_hour', values='extra_import_kwh_raw', aggfunc='sum') \
-                           .reindex(index=range(1, 13), columns=range(24)).fillna(0)
+    if 'extra_import_kwh_raw' in df_calc.columns:
+        heatmap_imp = pd.pivot_table(
+            df_calc.assign(_month=_hm_month, _hour=_hm_hour),
+            index='_month', columns='_hour',
+            values='extra_import_kwh_raw', aggfunc='sum'
+        ).reindex(index=range(1, 13), columns=range(24)).fillna(0)
     else:
         heatmap_imp = pd.DataFrame(0, index=range(1, 13), columns=range(24))
 

@@ -26,9 +26,10 @@ ASSIGNMENT_PARAMS = {
         "show_tariff":  True,
     },
     ASSIGNMENT_2: {
-        "show_battery": False,
-        "show_vpp":     False,
-        "show_tariff":  True,
+        "show_battery":  False,
+        "show_vpp":      False,
+        "show_tariff":   True,
+        "tariff_mode":   "combined",  # Asgn 2: tampilkan Flat+ToU sekaligus, tanpa dropdown scheme
     },
 }
 
@@ -80,9 +81,12 @@ OUTPUT_COLUMNS = {
         'temperature_C',
         'solar_output_kw',
         'load_kW',
-        'price_AUD/MWh',
-        'tariff_import_AUD/kWh',
-        'tariff_export_AUD/kWh',
+        'price_AUD/MWh',          # raw spot price (AUD/MWh)
+        'spot_price_AUD/kWh',     # spot price dikonversi ke AUD/kWh
+        'tariff_import_flat_aud', # flat import tariff (AUD/kWh)
+        'tariff_export_flat_aud', # flat export tariff (AUD/kWh)
+        'tariff_import_tou_aud',  # ToU import tariff (time-varying, AUD/kWh)
+        'tariff_export_tou_aud',  # ToU export tariff (time-varying, AUD/kWh)
     ],
 }
 

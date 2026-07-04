@@ -236,10 +236,17 @@ if st.session_state['role'] == 'admin':
                             index=idx_start, 
                             key="ui_date_start" 
                         )
-                        st.session_state['date_start'] = ui_start_y # 
-                        
-                    
-                        valid_end_years = [y for y in available_years if y >= ui_start_y]
+                        st.session_state['date_start'] = ui_start_y
+
+                        # Assignment 2: end year harus > start year (min 2 tahun)
+                        _is_asgn2_dur = (_asgn_key == asgn.ASSIGNMENT_2)
+                        if _is_asgn2_dur:
+                            valid_end_years = [y for y in available_years if y > ui_start_y]
+                            if not valid_end_years:
+                                st.warning("⚠️ Assignment 2 requires at least 2 years of data. No valid end year available from this start.")
+                                st.stop()
+                        else:
+                            valid_end_years = [y for y in available_years if y >= ui_start_y]
                         
                         saved_end = st.session_state.get('date_end', valid_end_years[-1])
                         idx_end = valid_end_years.index(saved_end) if saved_end in valid_end_years else len(valid_end_years) - 1
@@ -255,12 +262,14 @@ if st.session_state['role'] == 'admin':
                     else: 
                         total_years = len(available_years)
                         
-                        saved_rand_dur = st.session_state.get('rand_dur_years', 1)
-                        saved_rand_dur = min(saved_rand_dur, total_years) 
+                        # Assignment 2: minimal 2 tahun
+                        _min_dur = 2 if _asgn_key == asgn.ASSIGNMENT_2 else 1
+                        saved_rand_dur = st.session_state.get('rand_dur_years', _min_dur)
+                        saved_rand_dur = max(_min_dur, min(saved_rand_dur, total_years))
                         
                         ui_dur = st.number_input(
                             f"Duration (Years)", 
-                            min_value=1, 
+                            min_value=_min_dur, 
                             max_value=total_years, 
                             value=int(saved_rand_dur), 
                             key="ui_rand_dur_years"
@@ -312,103 +321,173 @@ if st.session_state['role'] == 'admin':
                     vpp_price = st.number_input("Dispatch Price Threshold (AUD/MWh)", 0, 2000, step=10, key="vpp_threshold")
 
                 st.info("💲 Tariff")
-                list_scheme = ["Flat", "Time of Use", "Wholesale Price", "Random"]
-                
-                def _sync_scheme():
-                    st.session_state['tariff_scheme'] = st.session_state['ui_tariff_scheme']
 
-                saved_scheme = st.session_state.get('tariff_scheme', 'Flat')
-                if saved_scheme not in list_scheme: 
-                    saved_scheme = 'Flat'
-                
-                if "ui_tariff_scheme" not in st.session_state:
-                    st.session_state["ui_tariff_scheme"] = saved_scheme
-                
-                ui_scheme = st.selectbox(
-                    "Select Tariff Scheme", 
-                    list_scheme, 
-                    key="ui_tariff_scheme", 
-                    on_change=_sync_scheme,
-                    label_visibility="collapsed"
-                )
-                
+                # Deteksi mode tariff berdasarkan assignment aktif
+                _tariff_mode = asgn.get_params_visibility(_asgn_key).get("tariff_mode", "single")
+
                 t_utils.initialize_session_state()
 
-                if ui_scheme == "Flat":
-                    st.markdown("**💲 Set Prices (AUD/kWh)**")
-                    c1, c2 = st.columns(2)
-                    
-                    def _sync_flat_imp(): st.session_state['imp_tariff'] = st.session_state['ui_imp_tariff']
-                    def _sync_flat_exp(): st.session_state['exp_tariff'] = st.session_state['ui_exp_tariff']
-                    
-                    c1.number_input("Import", 0.0, 2.0, step=0.01, key="ui_imp_tariff", 
-                                    value=float(st.session_state.get('imp_tariff', 0.20)), on_change=_sync_flat_imp)
-                    c2.number_input("Export", 0.0, 1.0, step=0.01, key="ui_exp_tariff", 
-                                    value=float(st.session_state.get('exp_tariff', 0.08)), on_change=_sync_flat_exp)
-                
-                elif ui_scheme == "Time of Use":
-                    st.markdown("**🕒 Set Time Periods**")
-                    
-                    def _sync_t_p_start():
-                        st.session_state['t_p_start'] = st.session_state['ui_t_p_start']
-                        t_utils.sync_peak_start()
-                    def _sync_t_p_end():
-                        st.session_state['t_p_end'] = st.session_state['ui_t_p_end']
-                        t_utils.sync_peak_end()
-                    def _sync_t_o_start():
-                        st.session_state['t_o_start'] = st.session_state['ui_t_o_start']
-                        t_utils.sync_offpeak_start()
-                    def _sync_t_o_end():
-                        st.session_state['t_o_end'] = st.session_state['ui_t_o_end']
-                        t_utils.sync_offpeak_end()
-                    def _sync_t_s_start():
-                        st.session_state['t_s_start'] = st.session_state['ui_t_s_start']
-                        t_utils.sync_shoulder_start()
-                    def _sync_t_s_end():
-                        st.session_state['t_s_end'] = st.session_state['ui_t_s_end']
-                        t_utils.sync_shoulder_end()
-                    
-                    st.markdown("Peak Time")
-                    c1, c2 = st.columns(2)
-                    c1.time_input("Start", key="ui_t_p_start", value=st.session_state.get('t_p_start', time(19,0)), on_change=_sync_t_p_start)
-                    c2.time_input("End", key="ui_t_p_end", value=st.session_state.get('t_p_end', time(23,0)), on_change=_sync_t_p_end)
+                # ── Callbacks waktu ToU (dipakai oleh Asgn 1 dan Asgn 2) ──────
+                def _sync_t_p_start():
+                    st.session_state['t_p_start'] = st.session_state['ui_t_p_start']
+                    t_utils.sync_peak_start()
+                def _sync_t_p_end():
+                    st.session_state['t_p_end'] = st.session_state['ui_t_p_end']
+                    t_utils.sync_peak_end()
+                def _sync_t_o_start():
+                    st.session_state['t_o_start'] = st.session_state['ui_t_o_start']
+                    t_utils.sync_offpeak_start()
+                def _sync_t_o_end():
+                    st.session_state['t_o_end'] = st.session_state['ui_t_o_end']
+                    t_utils.sync_offpeak_end()
+                def _sync_t_s_start():
+                    st.session_state['t_s_start'] = st.session_state['ui_t_s_start']
+                    t_utils.sync_shoulder_start()
+                def _sync_t_s_end():
+                    st.session_state['t_s_end'] = st.session_state['ui_t_s_end']
+                    t_utils.sync_shoulder_end()
 
-                    st.markdown("Off-Peak Time")
-                    c1, c2 = st.columns(2)
-                    c1.time_input("Start", key="ui_t_o_start", value=st.session_state.get('t_o_start', time(23,0)), on_change=_sync_t_o_start, label_visibility="collapsed")
-                    c2.time_input("End", key="ui_t_o_end", value=st.session_state.get('t_o_end', time(7,0)), on_change=_sync_t_o_end, label_visibility="collapsed")
+                def _sync_pp(): st.session_state['pp'] = st.session_state['ui_pp']
+                def _sync_po(): st.session_state['po'] = st.session_state['ui_po']
+                def _sync_ps(): st.session_state['ps'] = st.session_state['ui_ps']
+                def _sync_ep(): st.session_state['e_peak'] = st.session_state['ui_e_peak']
+                def _sync_eo(): st.session_state['e_offpeak'] = st.session_state['ui_e_offpeak']
+                def _sync_es(): st.session_state['e_shoulder'] = st.session_state['ui_e_shoulder']
+                def _sync_flat_imp(): st.session_state['imp_tariff'] = st.session_state['ui_imp_tariff']
+                def _sync_flat_exp(): st.session_state['exp_tariff'] = st.session_state['ui_exp_tariff']
 
-                    st.markdown("Shoulder Time")
-                    c1, c2 = st.columns(2)
-                    c1.time_input("Start", key="ui_t_s_start", value=st.session_state.get('t_s_start', time(7,0)), on_change=_sync_t_s_start, label_visibility="collapsed")
-                    c2.time_input("End", key="ui_t_s_end", value=st.session_state.get('t_s_end', time(19,0)), on_change=_sync_t_s_end, label_visibility="collapsed")
+                if _tariff_mode == "combined":
+                    # ── ASSIGNMENT 2: Flat + ToU langsung, tanpa dropdown scheme ──
+                    st.caption("Wholesale/Spot price diambil otomatis dari data pasar.")
 
-                    st.markdown("**💲 Set Prices (AUD/kWh)**")
-                    cp1, cp2 = st.columns(2)
-                    
-                    def _sync_pp(): st.session_state['pp'] = st.session_state['ui_pp']
-                    def _sync_po(): st.session_state['po'] = st.session_state['ui_po']
-                    def _sync_ps(): st.session_state['ps'] = st.session_state['ui_ps']
-                    def _sync_ep(): st.session_state['e_peak'] = st.session_state['ui_e_peak']
-                    def _sync_eo(): st.session_state['e_offpeak'] = st.session_state['ui_e_offpeak']
-                    def _sync_es(): st.session_state['e_shoulder'] = st.session_state['ui_e_shoulder']
-                    
-                    with cp1:
-                        st.markdown("Import")
-                        st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_pp", value=float(st.session_state.get('pp', 0.45)), on_change=_sync_pp)
-                        st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_po", value=float(st.session_state.get('po', 0.15)), on_change=_sync_po)
-                        st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_ps", value=float(st.session_state.get('ps', 0.25)), on_change=_sync_ps)
-                    with cp2:
-                        st.markdown("Export")
-                        st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_e_peak", value=float(st.session_state.get('e_peak', 0.15)), on_change=_sync_ep)
-                        st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_e_offpeak", value=float(st.session_state.get('e_offpeak', 0.05)), on_change=_sync_eo)
-                        st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_e_shoulder", value=float(st.session_state.get('e_shoulder', 0.10)), on_change=_sync_es)
+                    tf1, tf2 = st.columns(2)
 
-                elif ui_scheme == "Wholesale Price":
-                    st.info("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
-                
-                elif ui_scheme == "Random":
-                    st.info("The simulation will randomly select between Flat, Time of Use, or Wholesale Price.\n")
+                    with tf1:
+                        st.markdown("**Flat Tariff**")
+                        st.number_input("Import Flat (AUD/kWh)", 0.0, 2.0, step=0.01,
+                                        key="ui_imp_tariff",
+                                        value=float(st.session_state.get('imp_tariff', 0.20)),
+                                        on_change=_sync_flat_imp)
+                        st.number_input("Export Flat (AUD/kWh)", 0.0, 1.0, step=0.01,
+                                        key="ui_exp_tariff",
+                                        value=float(st.session_state.get('exp_tariff', 0.08)),
+                                        on_change=_sync_flat_exp)
+
+                    with tf2:
+                        st.markdown("**Time of Use Tariff**")
+                        st.markdown("*Time Periods*")
+                        tc1, tc2 = st.columns(2)
+                        tc1.markdown("Peak")
+                        tc2.markdown("")
+                        tc1.time_input("Start", key="ui_t_p_start",
+                                       value=st.session_state.get('t_p_start', time(19,0)),
+                                       on_change=_sync_t_p_start, label_visibility="collapsed")
+                        tc2.time_input("End", key="ui_t_p_end",
+                                       value=st.session_state.get('t_p_end', time(23,0)),
+                                       on_change=_sync_t_p_end, label_visibility="collapsed")
+
+                        tc1.markdown("Off-Peak")
+                        tc1.time_input("Off-Peak Start", key="ui_t_o_start",
+                                       value=st.session_state.get('t_o_start', time(23,0)),
+                                       on_change=_sync_t_o_start, label_visibility="collapsed")
+                        tc2.time_input("Off-Peak End", key="ui_t_o_end",
+                                       value=st.session_state.get('t_o_end', time(7,0)),
+                                       on_change=_sync_t_o_end, label_visibility="collapsed")
+
+                        tc1.markdown("Shoulder")
+                        tc1.time_input("Shoulder Start", key="ui_t_s_start",
+                                       value=st.session_state.get('t_s_start', time(7,0)),
+                                       on_change=_sync_t_s_start, label_visibility="collapsed")
+                        tc2.time_input("Shoulder End", key="ui_t_s_end",
+                                       value=st.session_state.get('t_s_end', time(19,0)),
+                                       on_change=_sync_t_s_end, label_visibility="collapsed")
+
+                        st.markdown("*Prices (AUD/kWh)*")
+                        tp1, tp2 = st.columns(2)
+                        with tp1:
+                            st.markdown("Import")
+                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_pp",
+                                            value=float(st.session_state.get('pp', 0.45)), on_change=_sync_pp)
+                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_po",
+                                            value=float(st.session_state.get('po', 0.15)), on_change=_sync_po)
+                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_ps",
+                                            value=float(st.session_state.get('ps', 0.25)), on_change=_sync_ps)
+                        with tp2:
+                            st.markdown("Export")
+                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_e_peak",
+                                            value=float(st.session_state.get('e_peak', 0.15)), on_change=_sync_ep)
+                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_e_offpeak",
+                                            value=float(st.session_state.get('e_offpeak', 0.05)), on_change=_sync_eo)
+                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_e_shoulder",
+                                            value=float(st.session_state.get('e_shoulder', 0.10)), on_change=_sync_es)
+
+                else:
+                    # ── ASSIGNMENT 1 (dan default): dropdown scheme seperti sebelumnya ──
+                    list_scheme = ["Flat", "Time of Use", "Wholesale Price", "Random"]
+
+                    def _sync_scheme():
+                        st.session_state['tariff_scheme'] = st.session_state['ui_tariff_scheme']
+
+                    saved_scheme = st.session_state.get('tariff_scheme', 'Flat')
+                    if saved_scheme not in list_scheme:
+                        saved_scheme = 'Flat'
+
+                    if "ui_tariff_scheme" not in st.session_state:
+                        st.session_state["ui_tariff_scheme"] = saved_scheme
+
+                    ui_scheme = st.selectbox(
+                        "Select Tariff Scheme",
+                        list_scheme,
+                        key="ui_tariff_scheme",
+                        on_change=_sync_scheme,
+                        label_visibility="collapsed"
+                    )
+
+                    if ui_scheme == "Flat":
+                        st.markdown("**💲 Set Prices (AUD/kWh)**")
+                        c1, c2 = st.columns(2)
+                        c1.number_input("Import", 0.0, 2.0, step=0.01, key="ui_imp_tariff",
+                                        value=float(st.session_state.get('imp_tariff', 0.20)), on_change=_sync_flat_imp)
+                        c2.number_input("Export", 0.0, 1.0, step=0.01, key="ui_exp_tariff",
+                                        value=float(st.session_state.get('exp_tariff', 0.08)), on_change=_sync_flat_exp)
+
+                    elif ui_scheme == "Time of Use":
+                        st.markdown("**🕒 Set Time Periods**")
+
+                        st.markdown("Peak Time")
+                        c1, c2 = st.columns(2)
+                        c1.time_input("Start", key="ui_t_p_start", value=st.session_state.get('t_p_start', time(19,0)), on_change=_sync_t_p_start)
+                        c2.time_input("End", key="ui_t_p_end", value=st.session_state.get('t_p_end', time(23,0)), on_change=_sync_t_p_end)
+
+                        st.markdown("Off-Peak Time")
+                        c1, c2 = st.columns(2)
+                        c1.time_input("Start", key="ui_t_o_start", value=st.session_state.get('t_o_start', time(23,0)), on_change=_sync_t_o_start, label_visibility="collapsed")
+                        c2.time_input("End", key="ui_t_o_end", value=st.session_state.get('t_o_end', time(7,0)), on_change=_sync_t_o_end, label_visibility="collapsed")
+
+                        st.markdown("Shoulder Time")
+                        c1, c2 = st.columns(2)
+                        c1.time_input("Start", key="ui_t_s_start", value=st.session_state.get('t_s_start', time(7,0)), on_change=_sync_t_s_start, label_visibility="collapsed")
+                        c2.time_input("End", key="ui_t_s_end", value=st.session_state.get('t_s_end', time(19,0)), on_change=_sync_t_s_end, label_visibility="collapsed")
+
+                        st.markdown("**💲 Set Prices (AUD/kWh)**")
+                        cp1, cp2 = st.columns(2)
+                        with cp1:
+                            st.markdown("Import")
+                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_pp", value=float(st.session_state.get('pp', 0.45)), on_change=_sync_pp)
+                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_po", value=float(st.session_state.get('po', 0.15)), on_change=_sync_po)
+                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_ps", value=float(st.session_state.get('ps', 0.25)), on_change=_sync_ps)
+                        with cp2:
+                            st.markdown("Export")
+                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_e_peak", value=float(st.session_state.get('e_peak', 0.15)), on_change=_sync_ep)
+                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_e_offpeak", value=float(st.session_state.get('e_offpeak', 0.05)), on_change=_sync_eo)
+                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_e_shoulder", value=float(st.session_state.get('e_shoulder', 0.10)), on_change=_sync_es)
+
+                    elif ui_scheme == "Wholesale Price":
+                        st.info("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
+
+                    elif ui_scheme == "Random":
+                        st.info("The simulation will randomly select between Flat, Time of Use, or Wholesale Price.\n")
+
 
         with col_spec:
             st.subheader("⚙️ System Specifications")
@@ -597,55 +676,87 @@ if st.session_state['role'] == 'admin':
                                     })
                                 
                                 t_data = saved_params['tariff_data']
-                                sim_params['tariff_scheme'] = t_data.get('tariff_scheme', 'Flat')
+                                regen_scheme = t_data.get('tariff_scheme', 'Flat')
+                                sim_params['tariff_scheme'] = regen_scheme
 
+                                # Time defaults (bisa di-override oleh snapshot)
                                 sim_params.update({
-                                    't_peak_start': time(17, 0),
-                                    't_peak_end': time(20, 0),
+                                    't_peak_start':    time(17, 0),
+                                    't_peak_end':      time(20, 0),
                                     't_offpeak_start': time(22, 0),
-                                    't_offpeak_end': time(6, 0),
-                                    't_shoulder_start': time(14, 0),
-                                    't_shoulder_end': time(17, 0)
+                                    't_offpeak_end':   time(6, 0),
+                                    't_shoulder_start':time(14, 0),
+                                    't_shoulder_end':  time(17, 0)
                                 })
 
-                                if sim_params['tariff_scheme'] == "Time of Use":
+                                # Restore tariff params dari snapshot
+                                if regen_scheme in ("Time of Use", "Assignment2"):
                                     sim_params.update({
-                                        'peak_price': t_data['peak_price'],
-                                        'exp_peak': t_data['exp_peak'],
-                                        't_peak_start': datetime.strptime(t_data['peak_start'], "%H:%M").time(),
-                                        't_peak_end': datetime.strptime(t_data['peak_end'], "%H:%M").time(),
-                                        'offpeak_price': t_data['offpeak_price'],
-                                        'exp_offpeak': t_data['exp_offpeak'],
+                                        'peak_price':    t_data.get('peak_price', 0.45),
+                                        'exp_peak':      t_data.get('exp_peak', 0.15),
+                                        't_peak_start':  datetime.strptime(t_data['peak_start'],    "%H:%M").time(),
+                                        't_peak_end':    datetime.strptime(t_data['peak_end'],      "%H:%M").time(),
+                                        'offpeak_price': t_data.get('offpeak_price', 0.15),
+                                        'exp_offpeak':   t_data.get('exp_offpeak', 0.05),
                                         't_offpeak_start': datetime.strptime(t_data['offpeak_start'], "%H:%M").time(),
-                                        't_offpeak_end': datetime.strptime(t_data['offpeak_end'], "%H:%M").time(),
-                                        'shoulder_price': t_data['shoulder_price'],
-                                        'exp_shoulder': t_data['exp_shoulder'],
+                                        't_offpeak_end':   datetime.strptime(t_data['offpeak_end'],   "%H:%M").time(),
+                                        'shoulder_price':t_data.get('shoulder_price', 0.25),
+                                        'exp_shoulder':  t_data.get('exp_shoulder', 0.10),
                                         't_shoulder_start': datetime.strptime(t_data['shoulder_start'], "%H:%M").time(),
-                                        't_shoulder_end': datetime.strptime(t_data['shoulder_end'], "%H:%M").time(),
+                                        't_shoulder_end':   datetime.strptime(t_data['shoulder_end'],   "%H:%M").time(),
                                     })
-                                elif sim_params['tariff_scheme'] == "Flat":
-                                    sim_params['import_flat'] = t_data.get('import_flat', 0.20)
+                                if regen_scheme in ("Flat", "Assignment2"):
+                                    sim_params['import_flat']  = t_data.get('import_flat', 0.20)
                                     sim_params['export_price'] = t_data.get('export_price', 0.08)
-                                    
+
                                 df_result_regen = calculator.run_simulation(df_input_regen, sim_params, regen_asgn_type)
-                                
-                                df_export = df_result_regen.round(2).rename(columns={
-                                    'irradiance':          'irradiance_W/m^2',
-                                    'temperature':         'temperature_C',
-                                    'load_profile':        'load_kW',
-                                    'price_profile':       'price_AUD/MWh',
-                                    'battery_soc_pct':     'battery_soc_%',
-                                    'battery_soc_kwh':     'battery_soc_kwh',
-                                    'battery_power_ac_kw': 'battery_power_ac_kW',
-                                    'tariff_import_AUD':   'tariff_import_AUD/kWh',
-                                    'tariff_export_AUD':   'tariff_export_AUD/kWh',
-                                    'grid_net_kw':         'grid_net_kW',
-                                })
+
+                                # Rename map kondisional per assignment
+                                if regen_asgn_type == asgn.ASSIGNMENT_2:
+                                    df_export = df_result_regen.rename(columns={
+                                        'irradiance':   'irradiance_W/m^2',
+                                        'temperature':  'temperature_C',
+                                        'load_profile': 'load_kW',
+                                        'price_profile':'price_AUD/MWh',
+                                    })
+                                else:
+                                    df_export = df_result_regen.round(2).rename(columns={
+                                        'irradiance':          'irradiance_W/m^2',
+                                        'temperature':         'temperature_C',
+                                        'load_profile':        'load_kW',
+                                        'price_profile':       'price_AUD/MWh',
+                                        'battery_soc_pct':     'battery_soc_%',
+                                        'battery_soc_kwh':     'battery_soc_kwh',
+                                        'battery_power_ac_kw': 'battery_power_ac_kW',
+                                        'tariff_import_AUD':   'tariff_import_AUD/kWh',
+                                        'tariff_export_AUD':   'tariff_export_AUD/kWh',
+                                        'grid_net_kw':         'grid_net_kW',
+                                    })
+
                                 _out_cols = asgn.get_output_columns(regen_asgn_type)
-                                _out_cols_exist = [c for c in _out_cols if c in df_export.columns]
-                                df_export = df_export[_out_cols_exist]
-                                
+                                df_export  = df_export[[c for c in _out_cols if c in df_export.columns]]
+
+                                # Full CSV
                                 st.session_state['regen_csv_data'] = df_export.to_csv(index=False).encode('utf-8')
+
+                                # Partial CSV untuk Asgn 2
+                                if regen_asgn_type == asgn.ASSIGNMENT_2:
+                                    _df_regen_partial = df_export.copy()
+                                    _ry_first = _df_regen_partial['timestamp'].dt.year.min()
+                                    _ry_mask  = _df_regen_partial['timestamp'].dt.year > _ry_first
+                                    _regen_blank = [
+                                        'solar_output_kw',
+                                        'tariff_import_flat_aud', 'tariff_export_flat_aud',
+                                        'tariff_import_tou_aud',  'tariff_export_tou_aud',
+                                    ]
+                                    for _rc in _regen_blank:
+                                        if _rc in _df_regen_partial.columns:
+                                            _df_regen_partial.loc[_ry_mask, _rc] = np.nan
+                                    st.session_state['regen_csv_data_partial'] = _df_regen_partial.to_csv(index=False).encode('utf-8')
+                                    del _df_regen_partial
+                                else:
+                                    st.session_state['regen_csv_data_partial'] = None
+
                                 st.session_state['regen_nim'] = nim_target
                                 st.session_state['regen_reg'] = reg
                                 st.session_state['regen_pt'] = pt
@@ -668,16 +779,18 @@ if st.session_state['role'] == 'admin':
                 _regen_pt   = st.session_state['regen_pt']
 
                 ui_h.render_result_panel(
-                    df_result         = st.session_state.get('regen_df_result'),
-                    used_p            = st.session_state['regen_params'],
-                    vc                = _regen_vc,
-                    csv_bytes         = st.session_state['regen_csv_data'],
-                    download_label    = "Download Dataset (CSV)",
-                    download_filename = f"Data_{_regen_nim}_{_regen_reg}_{_regen_pt}.csv",
-                    download_key      = f"dl_regen_{_regen_nim}",
-                    year_key          = "sb_year_regen",
-                    month_key         = "sb_month_regen",
-                    show_analysis     = True,
+                    df_result            = st.session_state.get('regen_df_result'),
+                    used_p               = st.session_state['regen_params'],
+                    vc                   = _regen_vc,
+                    csv_bytes            = st.session_state['regen_csv_data'],
+                    csv_bytes_partial    = st.session_state.get('regen_csv_data_partial'),
+                    download_label       = "Download Dataset (CSV)",
+                    download_filename    = f"Data_{_regen_nim}_{_regen_reg}_{_regen_pt}.csv",
+                    download_key         = f"dl_regen_{_regen_nim}",
+                    download_key_partial = f"dl_regen_partial_{_regen_nim}",
+                    year_key             = "sb_year_regen",
+                    month_key            = "sb_month_regen",
+                    show_analysis        = True,
                 )
 
         tracker_ui()
@@ -962,46 +1075,97 @@ if btn_run:
         st.session_state['hasil_simulasi'] = df_result
         st.session_state['info_simulasi'] = f"{selected_loc}_{selected_point}_{final_start_y}-{final_end_y}"
 
-        # Buat CSV bytes sekali di sini, simpan ke session_state
-        # agar tidak di-rebuild tiap rerender (tiap interaksi widget)
+        # ── Buat CSV bytes sekali saat generate ──────────────────────────────
+        # Disimpan ke session_state agar tidak di-rebuild tiap interaksi widget.
         _asgn_for_csv = active_asgn_type
-        _df_csv = df_result.copy().rename(columns={
-            'irradiance':          'irradiance_W/m^2',
-            'temperature':         'temperature_C',
-            'load_profile':        'load_kW',
-            'price_profile':       'price_AUD/MWh',
-            'battery_soc_pct':     'battery_soc_%',
-            'battery_power_ac_kw': 'battery_power_ac_kW',
-            'tariff_import_AUD':   'tariff_import_AUD/kWh',
-            'tariff_export_AUD':   'tariff_export_AUD/kWh',
-            'grid_net_kw':         'grid_net_kW',
-        })
-        for _c in ['tariff_import_AUD/kWh', 'tariff_export_AUD/kWh']:
-            if _c in _df_csv.columns:
-                _df_csv[_c] = _df_csv[_c].round(5)
+
+        if _asgn_for_csv == asgn.ASSIGNMENT_2:
+            # Asgn 2: price_profile → price_AUD/MWh; spot_price_AUD/kWh sudah dari calculator
+            _df_csv = df_result.copy().rename(columns={
+                'irradiance':    'irradiance_W/m^2',
+                'temperature':   'temperature_C',
+                'load_profile':  'load_kW',
+                'price_profile': 'price_AUD/MWh',
+            })
+        else:
+            # Asgn 1: rename map lama (termasuk tariff_import/export_AUD)
+            _df_csv = df_result.copy().rename(columns={
+                'irradiance':          'irradiance_W/m^2',
+                'temperature':         'temperature_C',
+                'load_profile':        'load_kW',
+                'price_profile':       'price_AUD/MWh',
+                'battery_soc_pct':     'battery_soc_%',
+                'battery_power_ac_kw': 'battery_power_ac_kW',
+                'tariff_import_AUD':   'tariff_import_AUD/kWh',
+                'tariff_export_AUD':   'tariff_export_AUD/kWh',
+                'grid_net_kw':         'grid_net_kW',
+            })
+            for _c in ['tariff_import_AUD/kWh', 'tariff_export_AUD/kWh']:
+                if _c in _df_csv.columns:
+                    _df_csv[_c] = _df_csv[_c].round(5)
+
         _desired = asgn.get_output_columns(_asgn_for_csv)
         _df_csv  = _df_csv[[c for c in _desired if c in _df_csv.columns]]
+
+        # Full CSV (semua data lengkap)
         st.session_state['gen_csv_data'] = _df_csv.to_csv(index=False).encode('utf-8')
+
+        # Partial CSV (hanya untuk Asgn 2): tahun ke-2+ dikosongkan di kolom forecast
+        if _asgn_for_csv == asgn.ASSIGNMENT_2:
+            _df_partial = _df_csv.copy()
+            _first_year = _df_partial['timestamp'].dt.year.min()
+            _mask_later = _df_partial['timestamp'].dt.year > _first_year
+            _blank_cols = [
+                'solar_output_kw',
+                'tariff_import_flat_aud', 'tariff_export_flat_aud',
+                'tariff_import_tou_aud',  'tariff_export_tou_aud',
+            ]
+            for _col in _blank_cols:
+                if _col in _df_partial.columns:
+                    _df_partial.loc[_mask_later, _col] = np.nan
+            st.session_state['gen_csv_data_partial'] = _df_partial.to_csv(index=False).encode('utf-8')
+            del _df_partial
+        else:
+            st.session_state['gen_csv_data_partial'] = None
+
         del _df_csv
-        
-        # Susun Snapshot Tarif
-        tariff_snapshot = {'tariff_scheme': tariff_scheme}
-        
-        if tariff_scheme == "Time of Use":
-            tariff_snapshot.update({
+
+        # ── Susun Snapshot Tarif ──────────────────────────────────────────────
+        if active_asgn_type == asgn.ASSIGNMENT_2:
+            # Asgn 2: selalu simpan Flat + ToU sekaligus
+            tariff_snapshot = {
+                'tariff_scheme': 'Assignment2',
+                'import_flat': p_flat,
+                'export_price': exp_price,
                 'peak_price': p_peak, 'exp_peak': e_peak,
-                'peak_start': st.session_state.get('t_p_start', time(17,0)).strftime("%H:%M"),
-                'peak_end': st.session_state.get('t_p_end', time(20,0)).strftime("%H:%M"),
+                'peak_start': st.session_state.get('t_p_start', time(19,0)).strftime("%H:%M"),
+                'peak_end': st.session_state.get('t_p_end', time(23,0)).strftime("%H:%M"),
                 'offpeak_price': p_offpeak, 'exp_offpeak': e_offpeak,
-                'offpeak_start': st.session_state.get('t_o_start', time(22,0)).strftime("%H:%M"),
-                'offpeak_end': st.session_state.get('t_o_end', time(6,0)).strftime("%H:%M"),
+                'offpeak_start': st.session_state.get('t_o_start', time(23,0)).strftime("%H:%M"),
+                'offpeak_end': st.session_state.get('t_o_end', time(7,0)).strftime("%H:%M"),
                 'shoulder_price': p_shoulder, 'exp_shoulder': e_shoulder,
-                'shoulder_start': st.session_state.get('t_s_start', time(14,0)).strftime("%H:%M"),
-                'shoulder_end': st.session_state.get('t_s_end', time(17,0)).strftime("%H:%M"),
-            })
-        elif tariff_scheme == "Flat":
-            tariff_snapshot['import_flat'] = p_flat
-            tariff_snapshot['export_price'] = exp_price
+                'shoulder_start': st.session_state.get('t_s_start', time(7,0)).strftime("%H:%M"),
+                'shoulder_end': st.session_state.get('t_s_end', time(19,0)).strftime("%H:%M"),
+            }
+        else:
+            # Asgn 1: snapshot per skema yang dipilih
+            tariff_snapshot = {'tariff_scheme': tariff_scheme}
+            if tariff_scheme == "Time of Use":
+                tariff_snapshot.update({
+                    'peak_price': p_peak, 'exp_peak': e_peak,
+                    'peak_start': st.session_state.get('t_p_start', time(17,0)).strftime("%H:%M"),
+                    'peak_end': st.session_state.get('t_p_end', time(20,0)).strftime("%H:%M"),
+                    'offpeak_price': p_offpeak, 'exp_offpeak': e_offpeak,
+                    'offpeak_start': st.session_state.get('t_o_start', time(22,0)).strftime("%H:%M"),
+                    'offpeak_end': st.session_state.get('t_o_end', time(6,0)).strftime("%H:%M"),
+                    'shoulder_price': p_shoulder, 'exp_shoulder': e_shoulder,
+                    'shoulder_start': st.session_state.get('t_s_start', time(14,0)).strftime("%H:%M"),
+                    'shoulder_end': st.session_state.get('t_s_end', time(17,0)).strftime("%H:%M"),
+                })
+            elif tariff_scheme == "Flat":
+                tariff_snapshot['import_flat'] = p_flat
+                tariff_snapshot['export_price'] = exp_price
+
 
         st.session_state['used_params'] = {
             'assignment_type': active_asgn_type,
@@ -1052,14 +1216,16 @@ if st.session_state['hasil_simulasi'] is not None:
         _gen_vc   = asgn.get_vis_config(_gen_asgn)
 
         ui_h.render_result_panel(
-            df_result         = df_result,
-            used_p            = used_p,
-            vc                = _gen_vc,
-            csv_bytes         = csv_bytes,
-            download_label    = "Download Dataset (CSV)",
-            download_filename = f"Data_{file_name_info}.csv",
-            download_key      = "download-csv",
-            year_key          = "sb_year",
-            month_key         = "sb_month",
-            show_analysis     = True,
+            df_result            = df_result,
+            used_p               = used_p,
+            vc                   = _gen_vc,
+            csv_bytes            = csv_bytes,
+            csv_bytes_partial    = st.session_state.get('gen_csv_data_partial'),
+            download_label       = "Download Dataset (CSV)",
+            download_filename    = f"Data_{file_name_info}.csv",
+            download_key         = "download-csv",
+            download_key_partial = "download-csv-partial",
+            year_key             = "sb_year",
+            month_key            = "sb_month",
+            show_analysis        = True,
         )

@@ -465,7 +465,11 @@ def run_simulation_full(df, params):
 
 
 def run_simulation_solar_only(df, params):
-    """Engine simulasi Assignment 2: Solar PV Only — tanpa baterai, tanpa VPP dispatch."""
+    """Engine simulasi Assignment 2: Solar PV Only — tanpa baterai, tanpa VPP dispatch.
+
+    Semua skema tariff (Flat, ToU, Spot/Wholesale) dihitung paralel sebagai kolom data tambahan.
+    Tariff TIDAK mempengaruhi simulasi (tidak ada battery/VPP dispatch di Assignment 2).
+    """
 
     arr_irr  = df['irradiance'].to_numpy(dtype=np.float64)
     arr_temp = df['temperature'].to_numpy(dtype=np.float64)
@@ -479,30 +483,66 @@ def run_simulation_solar_only(df, params):
     if 'price_import' in df_res.columns:
         df_res.rename(columns={'price_import': 'price_profile'}, inplace=True)
 
-    scheme = params.get('tariff_scheme', 'Flat')
-
-    _compute_tariffs(df_res, scheme, params)
-
-
-    # Grid net sederhana: load - solar (tanpa baterai)
+    # ── Grid net (solar only, no battery) ────────────────────────────
     df_res['solar_output_kw'] = solar_kw
     df_res['grid_net_kw']     = arr_load - solar_kw
+    df_res['grid_import_kw']  = np.where(df_res['grid_net_kw'] > 0,  df_res['grid_net_kw'], 0)
+    df_res['grid_export_kw']  = np.where(df_res['grid_net_kw'] < 0, -df_res['grid_net_kw'], 0)
 
-    df_res['grid_import_kw'] = np.where(df_res['grid_net_kw'] > 0, df_res['grid_net_kw'], 0)
-    df_res['grid_export_kw'] = np.where(df_res['grid_net_kw'] < 0, -df_res['grid_net_kw'], 0)
+    # ── Spot price AUD/kWh (konversi dari AUD/MWh) ───────────────────
+    df_res['spot_price_AUD/kWh'] = df_res['price_profile'] / 1000.0
 
+    # ── Tariff FLAT (langsung dari params) ───────────────────────────
+    df_res['tariff_import_flat_aud'] = params.get('import_flat', 0.20)
+    df_res['tariff_export_flat_aud'] = params.get('export_price', 0.08)
+
+    # ── Tariff TIME OF USE (time-masking) ────────────────────────────
+    timestamps_local  = df_res['timestamp']
+    time_float_tariff = (
+        timestamps_local.dt.hour + timestamps_local.dt.minute / 60.0
+    ).to_numpy(dtype=np.float64)
+
+    def _mask_f(arr, s, e):
+        if s < e:   return (arr >= s) & (arr < e)
+        elif s > e: return (arr >= s) | (arr < e)
+        else:       return np.zeros(len(arr), dtype=bool)
+
+    p_start_f = params['t_peak_start'].hour     + params['t_peak_start'].minute / 60.0
+    p_end_f   = params['t_peak_end'].hour       + params['t_peak_end'].minute   / 60.0
+    s_start_f = params['t_shoulder_start'].hour + params['t_shoulder_start'].minute / 60.0
+    s_end_f   = params['t_shoulder_end'].hour   + params['t_shoulder_end'].minute   / 60.0
+
+    cond_peak     = _mask_f(time_float_tariff, p_start_f, p_end_f)
+    cond_shoulder = _mask_f(time_float_tariff, s_start_f, s_end_f)
+
+    df_res['tariff_import_tou_aud'] = np.select(
+        [cond_peak, cond_shoulder],
+        [params.get('peak_price', 0.45), params.get('shoulder_price', 0.25)],
+        default=params.get('offpeak_price', 0.15)
+    )
+    df_res['tariff_export_tou_aud'] = np.select(
+        [cond_peak, cond_shoulder],
+        [params.get('exp_peak', 0.15), params.get('exp_shoulder', 0.10)],
+        default=params.get('exp_offpeak', 0.05)
+    )
+
+    # ── Finalisasi kolom output ───────────────────────────────────────
     final_cols = [
         'timestamp', 'irradiance', 'temperature', 'load_profile',
-        'price_profile', 'solar_output_kw', 'grid_net_kw',
-        'grid_import_kw', 'grid_export_kw',
-        'tariff_import_AUD', 'tariff_export_AUD',
+        'price_profile', 'spot_price_AUD/kWh',
+        'solar_output_kw', 'grid_net_kw', 'grid_import_kw', 'grid_export_kw',
+        'tariff_import_flat_aud', 'tariff_export_flat_aud',
+        'tariff_import_tou_aud',  'tariff_export_tou_aud',
     ]
     avail_cols = [c for c in final_cols if c in df_res.columns]
     df_export  = df_res[avail_cols].copy()
 
-    # [Fix F] Rounding vectorized via _round_export.
-    tariff_cols = ['tariff_import_AUD', 'tariff_export_AUD']
-    return _round_export(df_export, tariff_cols)  # Assignment 2 tidak punya monetary_bill_cols
+    tariff_cols = [
+        'spot_price_AUD/kWh',
+        'tariff_import_flat_aud', 'tariff_export_flat_aud',
+        'tariff_import_tou_aud',  'tariff_export_tou_aud',
+    ]
+    return _round_export(df_export, tariff_cols)
 
 
 def run_simulation(df, params, assignment_type="assignment_1"):

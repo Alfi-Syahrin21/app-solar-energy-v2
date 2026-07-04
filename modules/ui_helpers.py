@@ -271,15 +271,17 @@ def _render_analysis(df_result, vc: dict, year_selectbox_key: str, month_selectb
 
 def render_result_panel(
     df_result,
-    used_p:            dict,
-    vc:                dict,
-    csv_bytes:         bytes,
-    download_label:    str  = "Download Dataset (CSV)",
-    download_filename: str  = "data.csv",
-    download_key:      str  = "dl_result",
-    year_key:          str  = "sb_year",
-    month_key:         str  = "sb_month",
-    show_analysis:     bool = True,
+    used_p:                dict,
+    vc:                    dict,
+    csv_bytes:             bytes,
+    csv_bytes_partial:     bytes = None,           # NEW: Partial CSV (tahun 2+ dikosongkan)
+    download_label:        str   = "Download Dataset (CSV)",
+    download_filename:     str   = "data.csv",
+    download_key:          str   = "dl_result",
+    download_key_partial:  str   = "dl_result_partial",  # NEW
+    year_key:              str   = "sb_year",
+    month_key:             str   = "sb_month",
+    show_analysis:         bool  = True,
 ) -> None:
     """
     Render panel hasil simulasi secara lengkap.
@@ -287,16 +289,19 @@ def render_result_panel(
 
     Parameters
     ----------
-    df_result         : DataFrame hasil simulasi (kolom internal, bukan renamed)
-    used_p            : dict parameter simulasi (dari session_state['used_params'])
-    vc                : dict vis_config dari asgn.get_vis_config(assignment_type)
-    csv_bytes         : bytes CSV yang siap di-download
-    download_label    : label tombol download
-    download_filename : nama file CSV
-    download_key      : unique key untuk st.download_button
-    year_key          : unique key untuk selectbox tahun di analysis
-    month_key         : unique key untuk selectbox bulan di analysis
-    show_analysis     : True = tampilkan Detailed Analysis section (admin only)
+    df_result            : DataFrame hasil simulasi (kolom internal, bukan renamed)
+    used_p               : dict parameter simulasi (dari session_state['used_params'])
+    vc                   : dict vis_config dari asgn.get_vis_config(assignment_type)
+    csv_bytes            : bytes CSV full (semua baris berisi data)
+    csv_bytes_partial    : bytes CSV partial untuk Assignment 2 (tahun ke-2+ dikosongkan);
+                           None berarti tidak ditampilkan (Assignment 1 / backward compat)
+    download_label       : label tombol download (Full)
+    download_filename    : nama file CSV (Full)
+    download_key         : unique key untuk st.download_button (Full)
+    download_key_partial : unique key untuk st.download_button (Partial)
+    year_key             : unique key untuk selectbox tahun di analysis
+    month_key            : unique key untuk selectbox bulan di analysis
+    show_analysis        : True = tampilkan Detailed Analysis section (admin only)
     """
     role   = st.session_state.get('role', 'student')
     t_data = used_p.get('tariff_data', {})
@@ -310,15 +315,41 @@ def render_result_panel(
         _render_battery_logic(used_p, vc, t_data)
 
     st.markdown("### 💾 Export Data")
-    st.download_button(
-        label=download_label,
-        data=csv_bytes,
-        file_name=download_filename,
-        mime="text/csv",
-        key=download_key,
-    )
+
+    if csv_bytes_partial is not None:
+        # Assignment 2: tampilkan 2 tombol download berdampingan
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            st.download_button(
+                label="📦 Download Full Dataset (CSV)",
+                data=csv_bytes,
+                file_name=download_filename,
+                mime="text/csv",
+                key=download_key,
+                help="Dataset lengkap — semua tahun berisi data penuh.",
+            )
+        with dl_col2:
+            _partial_filename = download_filename.replace(".csv", "_student.csv")
+            st.download_button(
+                label="🎓 Download Student Dataset (CSV)",
+                data=csv_bytes_partial,
+                file_name=_partial_filename,
+                mime="text/csv",
+                key=download_key_partial,
+                help="Dataset untuk mahasiswa — tahun ke-2 dst dikosongkan pada kolom forecast.",
+            )
+    else:
+        # Assignment 1 (atau default): 1 tombol download
+        st.download_button(
+            label=download_label,
+            data=csv_bytes,
+            file_name=download_filename,
+            mime="text/csv",
+            key=download_key,
+        )
 
     if show_analysis and role == 'admin' and df_result is not None:
         st.divider()
         st.subheader("📊 Detailed Analysis")
         _render_analysis(df_result, vc, year_key, month_key)
+

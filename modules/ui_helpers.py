@@ -85,14 +85,42 @@ def _render_sim_info(used_p: dict, vc: dict, role: str) -> None:
 def _render_tariff_details(t_data: dict) -> None:
     """Render expander tariff details."""
     with st.expander("💲 View Applied Tariff Details", expanded=False):
-        schema_name  = t_data.get('tariff_scheme', "Flat")
-        display_name = "Wholesale Passthrough Price" if schema_name == "Wholesale Price" else schema_name
+        schema_name = t_data.get('tariff_scheme', "Flat")
 
-        st.markdown(f"**Scheme:** `{display_name}`")
+        if schema_name == "Assignment2":
+            # Asgn 2: tampilkan semua 3 skema sekaligus
+            st.markdown("**Flat Tariff**")
+            fc1, fc2 = st.columns(2)
+            fc1.markdown(f"Import: **{t_data.get('import_flat', 0.20)} AUD/kWh**")
+            fc2.markdown(f"Export: **{t_data.get('export_price', 0.08)} AUD/kWh**")
 
-        if schema_name == "Wholesale Price":
+            st.markdown("**Time of Use Tariff**")
+            tc1, tc2 = st.columns(2)
+            with tc1:
+                st.markdown("Import")
+                st.markdown(
+                    f"- Peak: **{t_data.get('peak_price', 0.45)} AUD/kWh**\n"
+                    f"- Shoulder: **{t_data.get('shoulder_price', 0.25)} AUD/kWh**\n"
+                    f"- Off-Peak: **{t_data.get('offpeak_price', 0.15)} AUD/kWh**"
+                )
+            with tc2:
+                st.markdown("Export")
+                st.markdown(
+                    f"- Peak: **{t_data.get('exp_peak', 0.15)} AUD/kWh**\n"
+                    f"- Shoulder: **{t_data.get('exp_shoulder', 0.10)} AUD/kWh**\n"
+                    f"- Off-Peak: **{t_data.get('exp_offpeak', 0.05)} AUD/kWh**"
+                )
+
+            st.markdown("**Wholesale / Spot Price**")
+            st.markdown("- Import / Export: taken directly from market spot price data.")
+
+        elif schema_name == "Wholesale Price":
+            st.markdown(f"**Scheme:** `Wholesale Passthrough Price`")
             st.markdown("- **Import:** Spot Price + Market + Network + Other Fees\n- **Export:** Spot Price + Market Fees")
+
         else:
+            display_name = schema_name
+            st.markdown(f"**Scheme:** `{display_name}`")
             tc1, tc2 = st.columns(2)
             with tc1:
                 st.markdown("**Export Tariff:**")
@@ -317,29 +345,39 @@ def render_result_panel(
     st.markdown("### 💾 Export Data")
 
     if csv_bytes_partial is not None:
-        # Assignment 2: tampilkan 2 tombol download berdampingan
-        dl_col1, dl_col2 = st.columns(2)
-        with dl_col1:
+        # Assignment 2
+        if role == 'admin':
+            # Admin: 2 tombol — Full + Partial
+            dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.download_button(
+                    label="Download Dataset (CSV)",
+                    data=csv_bytes,
+                    file_name=download_filename,
+                    mime="text/csv",
+                    key=download_key,
+                )
+            with dl_col2:
+                _partial_filename = download_filename.replace(".csv", "_partial.csv")
+                st.download_button(
+                    label="Download Partial Dataset (CSV)",
+                    data=csv_bytes_partial,
+                    file_name=_partial_filename,
+                    mime="text/csv",
+                    key=download_key_partial,
+                )
+        else:
+            # Student: 1 tombol, label biasa tapi isinya partial
+            _partial_filename = download_filename.replace(".csv", "_partial.csv")
             st.download_button(
-                label="📦 Download Full Dataset (CSV)",
-                data=csv_bytes,
-                file_name=download_filename,
-                mime="text/csv",
-                key=download_key,
-                help="Dataset lengkap — semua tahun berisi data penuh.",
-            )
-        with dl_col2:
-            _partial_filename = download_filename.replace(".csv", "_student.csv")
-            st.download_button(
-                label="🎓 Download Student Dataset (CSV)",
+                label="Download Dataset (CSV)",
                 data=csv_bytes_partial,
                 file_name=_partial_filename,
                 mime="text/csv",
-                key=download_key_partial,
-                help="Dataset untuk mahasiswa — tahun ke-2 dst dikosongkan pada kolom forecast.",
+                key=download_key,
             )
     else:
-        # Assignment 1 (atau default): 1 tombol download
+        # Assignment 1 (atau default): 1 tombol — full CSV
         st.download_button(
             label=download_label,
             data=csv_bytes,

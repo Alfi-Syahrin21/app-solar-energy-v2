@@ -226,36 +226,41 @@ if st.session_state['role'] == 'admin':
                     
                     if use_rand_dur: 
                         y1, y2 = st.columns(2)
-                        
-                        saved_start = st.session_state.get('date_start', available_years[0])
-                        idx_start = available_years.index(saved_start) if saved_start in available_years else 0
-                        
+
+                        _is_asgn2_dur = (_asgn_key == asgn.ASSIGNMENT_2)
+
+                        # Assignment 2: start year tidak boleh tahun terakhir
+                        # (harus ada setidaknya 1 tahun lagi sebagai end year)
+                        if _is_asgn2_dur and len(available_years) >= 2:
+                            valid_start_years = available_years[:-1]
+                        else:
+                            valid_start_years = available_years
+
+                        saved_start = st.session_state.get('date_start', valid_start_years[0])
+                        idx_start = valid_start_years.index(saved_start) if saved_start in valid_start_years else 0
+
                         ui_start_y = y1.selectbox(
-                            "Start Date", 
-                            available_years, 
-                            index=idx_start, 
-                            key="ui_date_start" 
+                            "Start Date",
+                            valid_start_years,
+                            index=idx_start,
+                            key="ui_date_start"
                         )
                         st.session_state['date_start'] = ui_start_y
 
-                        # Assignment 2: end year harus > start year (min 2 tahun)
-                        _is_asgn2_dur = (_asgn_key == asgn.ASSIGNMENT_2)
+                        # End year: selalu > start year untuk Asgn 2, >= untuk Asgn 1
                         if _is_asgn2_dur:
                             valid_end_years = [y for y in available_years if y > ui_start_y]
-                            if not valid_end_years:
-                                st.warning("⚠️ Assignment 2 requires at least 2 years of data. No valid end year available from this start.")
-                                st.stop()
                         else:
                             valid_end_years = [y for y in available_years if y >= ui_start_y]
-                        
+
                         saved_end = st.session_state.get('date_end', valid_end_years[-1])
                         idx_end = valid_end_years.index(saved_end) if saved_end in valid_end_years else len(valid_end_years) - 1
-                        
+
                         ui_end_y = y2.selectbox(
-                            "End Date", 
-                            valid_end_years, 
-                            index=idx_end, 
-                            key="ui_date_end" 
+                            "End Date",
+                            valid_end_years,
+                            index=idx_end,
+                            key="ui_date_end"
                         )
                         st.session_state['date_end'] = ui_end_y
                         
@@ -357,69 +362,71 @@ if st.session_state['role'] == 'admin':
                 def _sync_flat_exp(): st.session_state['exp_tariff'] = st.session_state['ui_exp_tariff']
 
                 if _tariff_mode == "combined":
-                    # ── ASSIGNMENT 2: Flat + ToU langsung, tanpa dropdown scheme ──
-                    st.caption("Wholesale/Spot price diambil otomatis dari data pasar.")
+                    # ── ASSIGNMENT 2: Flat + ToU, layout vertikal 1 kolom ──
 
+                    # -- Flat Tariff (baris atas) --
+                    st.markdown("**Flat Tariff**")
                     tf1, tf2 = st.columns(2)
+                    tf1.number_input("Import (AUD/kWh)", 0.0, 2.0, step=0.01,
+                                     key="ui_imp_tariff",
+                                     value=float(st.session_state.get('imp_tariff', 0.20)),
+                                     on_change=_sync_flat_imp)
+                    tf2.number_input("Export (AUD/kWh)", 0.0, 1.0, step=0.01,
+                                     key="ui_exp_tariff",
+                                     value=float(st.session_state.get('exp_tariff', 0.08)),
+                                     on_change=_sync_flat_exp)
 
-                    with tf1:
-                        st.markdown("**Flat Tariff**")
-                        st.number_input("Import Flat (AUD/kWh)", 0.0, 2.0, step=0.01,
-                                        key="ui_imp_tariff",
-                                        value=float(st.session_state.get('imp_tariff', 0.20)),
-                                        on_change=_sync_flat_imp)
-                        st.number_input("Export Flat (AUD/kWh)", 0.0, 1.0, step=0.01,
-                                        key="ui_exp_tariff",
-                                        value=float(st.session_state.get('exp_tariff', 0.08)),
-                                        on_change=_sync_flat_exp)
+                    # -- Time of Use Tariff (baris bawah) --
+                    st.markdown("**Time of Use Tariff**")
 
-                    with tf2:
-                        st.markdown("**Time of Use Tariff**")
-                        st.markdown("*Time Periods*")
-                        tc1, tc2 = st.columns(2)
-                        tc1.markdown("Peak")
-                        tc2.markdown("")
-                        tc1.time_input("Start", key="ui_t_p_start",
-                                       value=st.session_state.get('t_p_start', time(19,0)),
-                                       on_change=_sync_t_p_start, label_visibility="collapsed")
-                        tc2.time_input("End", key="ui_t_p_end",
-                                       value=st.session_state.get('t_p_end', time(23,0)),
-                                       on_change=_sync_t_p_end, label_visibility="collapsed")
+                    st.markdown("*Time Periods*")
 
-                        tc1.markdown("Off-Peak")
-                        tc1.time_input("Off-Peak Start", key="ui_t_o_start",
-                                       value=st.session_state.get('t_o_start', time(23,0)),
-                                       on_change=_sync_t_o_start, label_visibility="collapsed")
-                        tc2.time_input("Off-Peak End", key="ui_t_o_end",
-                                       value=st.session_state.get('t_o_end', time(7,0)),
-                                       on_change=_sync_t_o_end, label_visibility="collapsed")
+                    # Setiap baris jam punya st.columns(2) sendiri agar sejajar
+                    st.caption("Peak")
+                    tr1, tr2 = st.columns(2)
+                    tr1.time_input("Peak Start", key="ui_t_p_start",
+                                   value=st.session_state.get('t_p_start', time(19,0)),
+                                   on_change=_sync_t_p_start, label_visibility="collapsed")
+                    tr2.time_input("Peak End", key="ui_t_p_end",
+                                   value=st.session_state.get('t_p_end', time(23,0)),
+                                   on_change=_sync_t_p_end, label_visibility="collapsed")
 
-                        tc1.markdown("Shoulder")
-                        tc1.time_input("Shoulder Start", key="ui_t_s_start",
-                                       value=st.session_state.get('t_s_start', time(7,0)),
-                                       on_change=_sync_t_s_start, label_visibility="collapsed")
-                        tc2.time_input("Shoulder End", key="ui_t_s_end",
-                                       value=st.session_state.get('t_s_end', time(19,0)),
-                                       on_change=_sync_t_s_end, label_visibility="collapsed")
+                    st.caption("Off-Peak")
+                    tr1, tr2 = st.columns(2)
+                    tr1.time_input("Off-Peak Start", key="ui_t_o_start",
+                                   value=st.session_state.get('t_o_start', time(23,0)),
+                                   on_change=_sync_t_o_start, label_visibility="collapsed")
+                    tr2.time_input("Off-Peak End", key="ui_t_o_end",
+                                   value=st.session_state.get('t_o_end', time(7,0)),
+                                   on_change=_sync_t_o_end, label_visibility="collapsed")
 
-                        st.markdown("*Prices (AUD/kWh)*")
-                        tp1, tp2 = st.columns(2)
-                        with tp1:
-                            st.markdown("Import")
-                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_pp",
-                                            value=float(st.session_state.get('pp', 0.45)), on_change=_sync_pp)
-                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_po",
-                                            value=float(st.session_state.get('po', 0.15)), on_change=_sync_po)
-                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_ps",
-                                            value=float(st.session_state.get('ps', 0.25)), on_change=_sync_ps)
-                        with tp2:
-                            st.markdown("Export")
-                            st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_e_peak",
-                                            value=float(st.session_state.get('e_peak', 0.15)), on_change=_sync_ep)
-                            st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_e_offpeak",
-                                            value=float(st.session_state.get('e_offpeak', 0.05)), on_change=_sync_eo)
-                            st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_e_shoulder",
-                                            value=float(st.session_state.get('e_shoulder', 0.10)), on_change=_sync_es)
+                    st.caption("Shoulder")
+                    tr1, tr2 = st.columns(2)
+                    tr1.time_input("Shoulder Start", key="ui_t_s_start",
+                                   value=st.session_state.get('t_s_start', time(7,0)),
+                                   on_change=_sync_t_s_start, label_visibility="collapsed")
+                    tr2.time_input("Shoulder End", key="ui_t_s_end",
+                                   value=st.session_state.get('t_s_end', time(19,0)),
+                                   on_change=_sync_t_s_end, label_visibility="collapsed")
+
+                    st.markdown("*Prices (AUD/kWh)*")
+                    tp1, tp2 = st.columns(2)
+                    with tp1:
+                        st.markdown("Import")
+                        st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_pp",
+                                        value=float(st.session_state.get('pp', 0.45)), on_change=_sync_pp)
+                        st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_po",
+                                        value=float(st.session_state.get('po', 0.15)), on_change=_sync_po)
+                        st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_ps",
+                                        value=float(st.session_state.get('ps', 0.25)), on_change=_sync_ps)
+                    with tp2:
+                        st.markdown("Export")
+                        st.number_input("Peak", 0.0, 2.0, step=0.01, key="ui_e_peak",
+                                        value=float(st.session_state.get('e_peak', 0.15)), on_change=_sync_ep)
+                        st.number_input("Off-Peak", 0.0, 2.0, step=0.01, key="ui_e_offpeak",
+                                        value=float(st.session_state.get('e_offpeak', 0.05)), on_change=_sync_eo)
+                        st.number_input("Shoulder", 0.0, 2.0, step=0.01, key="ui_e_shoulder",
+                                        value=float(st.session_state.get('e_shoulder', 0.10)), on_change=_sync_es)
 
                 else:
                     # ── ASSIGNMENT 1 (dan default): dropdown scheme seperti sebelumnya ──

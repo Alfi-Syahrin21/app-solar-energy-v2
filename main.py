@@ -271,6 +271,10 @@ if st.session_state['role'] == 'admin':
                         _min_dur = 2 if _asgn_key == asgn.ASSIGNMENT_2 else 1
                         saved_rand_dur = st.session_state.get('rand_dur_years', _min_dur)
                         saved_rand_dur = max(_min_dur, min(saved_rand_dur, total_years))
+
+                        # Reset widget cache jika nilainya di bawah minimum (misal saat switch Asgn 1 → Asgn 2)
+                        if st.session_state.get('ui_rand_dur_years', _min_dur) < _min_dur:
+                            st.session_state['ui_rand_dur_years'] = _min_dur
                         
                         ui_dur = st.number_input(
                             f"Duration (Years)", 

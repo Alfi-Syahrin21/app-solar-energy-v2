@@ -759,6 +759,7 @@ if st.session_state['role'] == 'admin':
                                     _ry_mask  = _df_regen_partial['timestamp'].dt.year > _ry_first
                                     _regen_blank = [
                                         'solar_output_kW',
+                                        'spot_price_AUD/kWh',
                                         'tariff_import_flat_AUD/kWh', 'tariff_export_flat_AUD/kWh',
                                         'tariff_import_tou_AUD/kWh',  'tariff_export_tou_AUD/kWh',
                                     ]
@@ -1132,6 +1133,7 @@ if btn_run:
             _mask_later = _df_partial['timestamp'].dt.year > _first_year
             _blank_cols = [
                 'solar_output_kW',
+                'spot_price_AUD/kWh',
                 'tariff_import_flat_AUD/kWh', 'tariff_export_flat_AUD/kWh',
                 'tariff_import_tou_AUD/kWh',  'tariff_export_tou_AUD/kWh',
             ]

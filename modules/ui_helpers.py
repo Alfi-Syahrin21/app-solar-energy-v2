@@ -70,11 +70,11 @@ def _render_sim_info(used_p: dict, vc: dict, role: str) -> None:
                         f"- Temp Coeff: **{temp_val}**"
                     )
                 with c2:
-                    st.markdown("#### 🔋 Battery Storage (Auto-Sized for Admin CSV)")
+                    st.markdown("#### 🔋 Battery Storage (Auto-Sized)")
                     st.markdown(
                         f"- Capacity: **{used_p.get('bat','N/A')} kWh**\n"
                         f"- Power: **-{used_p.get('bat_charge_kw','N/A')} / +{used_p.get('bat_discharge_kw','N/A')} kW**\n"
-                        f"- Mode: *Auto-sized for Full CSV export*"
+                        f"- Mode: *Auto-sized*"
                     )
         else:
             st.markdown(

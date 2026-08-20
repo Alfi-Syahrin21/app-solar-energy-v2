@@ -142,9 +142,10 @@ def get_vis_config(assignment_type: str) -> dict:
     """
     return VIS_CONFIG.get(assignment_type, VIS_CONFIG[ASSIGNMENT_1])
 
-def get_output_columns(assignment_type: str, is_admin_full: bool = False) -> list:
+def get_output_columns(assignment_type: str, is_admin_full: bool = False, *args, **kwargs) -> list:
     """Kembalikan list kolom output CSV untuk assignment tertentu (bisa versi full admin)."""
-    if is_admin_full:
+    is_admin = is_admin_full or kwargs.get('is_admin_full', False)
+    if is_admin:
         return OUTPUT_COLUMNS_ADMIN.get(assignment_type, OUTPUT_COLUMNS.get(assignment_type, OUTPUT_COLUMNS[ASSIGNMENT_1]))
     return OUTPUT_COLUMNS.get(assignment_type, OUTPUT_COLUMNS[ASSIGNMENT_1])
 

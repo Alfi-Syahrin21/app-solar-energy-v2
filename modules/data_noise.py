@@ -163,12 +163,10 @@ def apply_assignment2_missing_values(df: pd.DataFrame, student_nim: str) -> pd.D
                 if col in df_out.columns:
                     df_out.loc[y2_slice, col] = np.nan
 
-    # Kosongkan solar_output_kW & spot_price / tarif di Tahun 2+ untuk Partial CSV (tugas mahasiswa)
+    # Kosongkan solar_output_kW & spot_price di Tahun 2+ untuk Partial CSV (tugas mahasiswa)
     blank_cols_y2 = [
         'solar_output_kW',
         'spot_price_AUD/kWh',
-        'tariff_import_flat_AUD/kWh', 'tariff_export_flat_AUD/kWh',
-        'tariff_import_tou_AUD/kWh',  'tariff_export_tou_AUD/kWh',
     ]
     for col in blank_cols_y2:
         if col in df_out.columns:

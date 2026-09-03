@@ -152,6 +152,9 @@ if st.session_state['role'] == 'admin':
                     success = cfg.save_config_to_sheets(new_config_name, st.session_state)
                     if success:
                         st.session_state['active_config'] = new_config_name
+                        latest_row = cfg.get_latest_config_for_assignment(selected_asgn_key)
+                        if latest_row is not None:
+                            cfg.apply_row_to_session(latest_row)
                         st.success("✅ Successfully Saved Config!")
                         tm.sleep(1)
                         st.rerun()

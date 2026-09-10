@@ -786,7 +786,7 @@ if st.session_state['role'] == 'admin':
                                     _out_cols_student = asgn.get_output_columns(regen_asgn_type, is_admin_full=False)
                                     _cols_to_pass = list(_out_cols_student) + ['solar_output_pure_kW'] if 'solar_output_pure_kW' in df_export.columns else list(_out_cols_student)
                                     _df_regen_partial = df_export[[c for c in _cols_to_pass if c in df_export.columns]].copy()
-                                    _df_regen_partial = d_noise.apply_assignment2_missing_values(_df_regen_partial, nim_target)
+                                    _df_regen_partial = d_noise.apply_assignment2_missing_values(_df_regen_partial, nim_target, config_used)
                                     _df_regen_partial = _df_regen_partial[[c for c in _out_cols_student if c in _df_regen_partial.columns]]
                                     st.session_state['regen_csv_data_partial'] = _df_regen_partial.to_csv(index=False).encode('utf-8')
                                     del _df_regen_partial
@@ -1175,8 +1175,16 @@ if btn_run:
             _desired_student = asgn.get_output_columns(_asgn_for_csv, is_admin_full=False)
             _cols_to_pass = list(_desired_student) + ['solar_output_pure_kW'] if 'solar_output_pure_kW' in _df_csv.columns else list(_desired_student)
             _df_partial = _df_csv[[c for c in _cols_to_pass if c in _df_csv.columns]].copy()
-            _nim_for_noise = student_nim if st.session_state.get('role') == 'student' else 'student'
-            _df_partial = d_noise.apply_assignment2_missing_values(_df_partial, _nim_for_noise)
+            if st.session_state.get('role') == 'admin':
+                param_keys = ['solar_capacity_kw', 'temp_coeff', 'pr', 'tariff_scheme', 'export_price', 'import_flat', 'peak_price', 'offpeak_price', 'shoulder_price', 'battery_capacity_kwh']
+                param_summary = f"{selected_loc}_{selected_point}_{final_start_y}_{final_end_y}_{final_load_file}_{final_load_mult}_" + "_".join(f"{k}:{params.get(k)}" for k in param_keys if k in params)
+                _nim_for_noise = 'admin'
+                _cfg_for_noise = f"{st.session_state.get('active_config', 'draft')}_{param_summary}"
+            else:
+                _nim_for_noise = student_nim
+                _cfg_for_noise = st.session_state.get('active_config', '')
+
+            _df_partial = d_noise.apply_assignment2_missing_values(_df_partial, _nim_for_noise, _cfg_for_noise)
             _df_partial = _df_partial[[c for c in _desired_student if c in _df_partial.columns]]
             st.session_state['gen_csv_data_partial'] = _df_partial.to_csv(index=False).encode('utf-8')
             del _df_partial

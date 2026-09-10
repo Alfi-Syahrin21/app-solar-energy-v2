@@ -62,7 +62,7 @@ def add_realistic_pv_noise(pv_pure: np.ndarray, irradiance: np.ndarray, noise_le
     return np.maximum(pv_final, 0.0)
 
 
-def apply_assignment2_missing_values(df: pd.DataFrame, student_nim: str) -> pd.DataFrame:
+def apply_assignment2_missing_values(df: pd.DataFrame, student_nim: str, config_name: str = "") -> pd.DataFrame:
     """
     Menginjeksi missing values pada DataFrame Partial CSV Assignment 2.
     
@@ -72,6 +72,8 @@ def apply_assignment2_missing_values(df: pd.DataFrame, student_nim: str) -> pd.D
         DataFrame hasil simulasi dengan kolom-kolom standar.
     student_nim : str
         ID / NIM Mahasiswa yang digunakan sebagai seed generator.
+    config_name : str, optional
+        Nama konfigurasi untuk membedakan variasi seed antar config.
         
     Returns
     -------
@@ -84,9 +86,11 @@ def apply_assignment2_missing_values(df: pd.DataFrame, student_nim: str) -> pd.D
     if not pd.api.types.is_datetime64_any_dtype(df_out['timestamp']):
         df_out['timestamp'] = pd.to_datetime(df_out['timestamp'])
 
-    # 2. Inisialisasi Seed dari NIM
+    # 2. Inisialisasi Seed dari NIM & Config Name
     clean_nim = str(student_nim).strip().lower() if student_nim else "student"
-    seed_hash = hashlib.md5(clean_nim.encode('utf-8')).hexdigest()
+    clean_config = str(config_name).strip().lower() if config_name else ""
+    seed_str = f"{clean_nim}_{clean_config}" if clean_config else clean_nim
+    seed_hash = hashlib.md5(seed_str.encode('utf-8')).hexdigest()
     seed_val = int(seed_hash[:8], 16) % (2**32)
     rng = np.random.RandomState(seed_val)
 
